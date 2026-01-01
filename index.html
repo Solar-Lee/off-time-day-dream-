@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全維度多人錄音室 (MVP)</title>
+    <title>全維度多人錄音室 (雲端版)</title>
     <style>
         :root {
             --bg-color: #1a1a1a;
@@ -200,6 +200,7 @@
             <input type="text" id="roomId" placeholder="房號 (Room ID)" value="room1">
             <button class="btn-primary" onclick="joinRoom()">建立 / 加入房間</button>
             <div class="warning">⚠️ 建議配戴耳機以避免回授 (Echo)</div>
+            <div id="debug-msg" style="margin-top:10px; font-size: 0.7rem; color: #888;"></div>
         </div>
     </div>
 
@@ -261,9 +262,18 @@
     <!-- 腳本邏輯 -->
     <script>
         // ================= 組態與全域變數 =================
-        // 自動偵測目前瀏覽器的網址與 Port (例如 localhost:3001)
-        const SIGNALING_URL = 'ws://' + window.location.host; 
         
+        // [關鍵修正] 雲端連線邏輯
+        // 1. 如果是 https 網址，就用 wss (安全 WebSocket)
+        // 2. 自動抓取 window.location.host，這樣在 Render 上就不會帶有錯誤的 :3000 埠號
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host; 
+        const SIGNALING_URL = `${protocol}//${host}`;
+        
+        // 除錯顯示
+        document.getElementById('debug-msg').innerText = `連線目標: ${SIGNALING_URL}`;
+        console.log("WebSocket URL:", SIGNALING_URL);
+
         let ws;
         let myId = null;
         let myNickname = "";
@@ -382,10 +392,17 @@
         // ================= 2. WebSocket Signaling =================
 
         function connectSignaling() {
-            ws = new WebSocket(SIGNALING_URL);
+            try {
+                ws = new WebSocket(SIGNALING_URL);
+            } catch (e) {
+                alert("WebSocket URL 錯誤: " + e.message);
+                return;
+            }
 
             ws.onopen = () => {
+                console.log("WS Connected");
                 document.getElementById('connection-status').textContent = "伺服器已連線";
+                document.getElementById('connection-status').style.color = "var(--success-color)";
                 // 傳送加入訊息
                 sendSignal({ type: 'join', roomId: roomId, nickname: myNickname });
             };
@@ -395,9 +412,16 @@
                 handleSignalingData(data);
             };
 
-            ws.onclose = () => {
+            ws.onclose = (e) => {
                 document.getElementById('connection-status').textContent = "伺服器斷線";
                 document.getElementById('connection-status').style.color = "red";
+                console.log("WS Close:", e);
+            };
+
+            ws.onerror = (e) => {
+                console.error("WS Error:", e);
+                // 嘗試顯示錯誤給使用者
+                alert("連線失敗！請檢查網路。");
             };
         }
 
@@ -453,7 +477,9 @@
         }
 
         function sendSignal(msg) {
-            ws.send(JSON.stringify(msg));
+            if(ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(msg));
+            }
         }
 
         // ================= 3. WebRTC Peer Connection (Mesh) =================
