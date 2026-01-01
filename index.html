@@ -12,6 +12,7 @@
             --accent-color: #00d2ff;
             --danger-color: #ff4757;
             --success-color: #2ed573;
+            --warn-color: #ff9f43;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -135,11 +136,19 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+            overflow-y: auto;
         }
         .soundboard {
             background: var(--panel-color);
             padding: 15px;
             border-radius: 8px;
+        }
+        /* 新增：BGM 面板樣式 */
+        .bgm-panel {
+            background: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
         }
         .sb-grid {
             display: grid;
@@ -178,10 +187,23 @@
             width: fit-content;
             margin-bottom: 10px;
         }
+        .toggle-btn {
+            background: #444;
+            border: 1px solid #555;
+            padding: 5px 15px;
+            color: #aaa;
+            font-size: 0.8rem;
+        }
+        .toggle-btn.active {
+            background: var(--success-color);
+            color: #000;
+            border-color: var(--success-color);
+            box-shadow: 0 0 10px rgba(46, 213, 115, 0.3);
+        }
 
         /* 提示 */
         .warning {
-            color: #ff9f43;
+            color: var(--warn-color);
             font-size: 0.8rem;
             margin-top: 5px;
         }
@@ -224,6 +246,21 @@
             <!-- 右側：工具 (音效 + 錄音) -->
             <div class="tools-panel">
                 
+                <!-- BGM 面板 (新增功能) -->
+                <div class="bgm-panel">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3 style="margin:0; font-size:1rem; color:#aaa;">Background Music</h3>
+                        <button id="bgm-toggle" class="toggle-btn" onclick="toggleBGM()">OFF</button>
+                    </div>
+                    <div style="font-size:0.8rem; color:#666; margin-bottom:10px;">
+                        模式: <span style="color:var(--accent-color)">賽博龐克氛圍 (Cyberpunk Drone)</span>
+                    </div>
+                    <div class="controls-row">
+                        <span>BGM 音量</span>
+                        <input type="range" id="bgm-volume" min="0" max="100" value="30">
+                    </div>
+                </div>
+
                 <!-- 音效板 -->
                 <div class="soundboard">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -250,7 +287,7 @@
                 <!-- 錄音區 -->
                 <div class="recorder-panel">
                     <h3>混音錄製</h3>
-                    <div style="font-size: 0.8rem; color:#aaa;">錄製範圍：你的麥克風 + 隊友聲音 + 音效</div>
+                    <div style="font-size: 0.8rem; color:#aaa;">錄製範圍：你的麥克風 + 隊友聲音 + 音效 + BGM</div>
                     <div id="rec-timer" class="rec-status">00:00</div>
                     <button id="btn-record-toggle" class="btn-record" onclick="toggleRecording()">開始錄音</button>
                     <div id="download-area" style="margin-top:10px;"></div>
@@ -262,15 +299,10 @@
     <!-- 腳本邏輯 -->
     <script>
         // ================= 組態與全域變數 =================
-        
-        // [關鍵修正] 雲端連線邏輯
-        // 1. 如果是 https 網址，就用 wss (安全 WebSocket)
-        // 2. 自動抓取 window.location.host，這樣在 Render 上就不會帶有錯誤的 :3000 埠號
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host; 
         const SIGNALING_URL = `${protocol}//${host}`;
         
-        // 除錯顯示
         document.getElementById('debug-msg').innerText = `連線目標: ${SIGNALING_URL}`;
         console.log("WebSocket URL:", SIGNALING_URL);
 
@@ -281,24 +313,29 @@
         
         // Web Audio Context
         let audioCtx;
-        let micSourceNode;      // 麥克風原始源
-        let micGainNode;        // 麥克風增益
-        let soundboardGainNode; // 音效總增益
+        let micSourceNode;      
+        let micGainNode;        
+        let soundboardGainNode; 
         
+        // 新增：BGM 相關節點
+        let bgmOscillators = []; // 儲存 BGM 的發聲單元
+        let bgmGainNode;         // BGM 音量控制
+        let isBgmPlaying = false;
+
         // 路由節點 (Destinations)
-        let recordDestNode;     // 給錄音用的 Destination (混合全部)
-        let peerDestNode;       // 給 WebRTC 傳輸用的 Destination (麥克風 + 廣播音效)
+        let recordDestNode;     
+        let peerDestNode;       
         
         // 狀態
-        const peers = {}; // { peerId: { conn: RTCPeerConnection, audioElem: HTMLAudioElement, gainNode: GainNode, ... } }
+        const peers = {}; 
         let localStream = null;
         let mediaRecorder = null;
         let recordedChunks = [];
         let isRecording = false;
         let recordingStartTime = 0;
         let recordInterval = null;
+        let recordingMimeType = ""; // 儲存當前使用的錄音格式
 
-        // 音效合成參數 (簡單的 Web Audio Oscillator 模擬)
         const sfxConfig = {
             'applause': { type: 'noise', duration: 1.5, decay: true }, 
             'laugh': { type: 'sawtooth', freq: [400, 600, 400, 600], duration: 0.5 },
@@ -308,7 +345,6 @@
             'whoosh': { type: 'noise', duration: 0.5, fade: true }
         };
 
-        // ICE Server (使用 Google 公用 STUN)
         const rtcConfig = {
             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         };
@@ -328,25 +364,16 @@
             roomId = roomInput.value;
 
             try {
-                // 1. 啟動 AudioContext (必須在使用者操作後)
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // 2. 獲取麥克風權限
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-
-                // 3. 建立音訊路由圖 (Audio Graph)
                 setupAudioGraph();
 
-                // 4. 切換 UI
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-screen').style.display = 'flex';
                 document.getElementById('display-room').textContent = `Room: ${roomId}`;
                 document.getElementById('display-nick').textContent = `Me: ${myNickname}`;
 
-                // 5. 連線 WebSocket
                 connectSignaling();
-
-                // 6. 顯示自己
                 updateMemberList();
 
             } catch (err) {
@@ -355,107 +382,164 @@
             }
         }
 
-        // 核心：音訊路由設定
         function setupAudioGraph() {
             // A. 建立節點
             micSourceNode = audioCtx.createMediaStreamSource(localStream);
-            micGainNode = audioCtx.createGain(); // 控制自己麥克風音量 (主要用於 Mute)
+            micGainNode = audioCtx.createGain(); 
             
             soundboardGainNode = audioCtx.createGain();
             soundboardGainNode.gain.value = 0.8;
 
+            // 新增：BGM 總增益節點
+            bgmGainNode = audioCtx.createGain();
+            bgmGainNode.gain.value = 0.3; // 預設 30%
+
             // B. 建立 Destinations
-            // 用於錄音 (錄下: 自己的麥 + 別人聲音 + 音效)
             recordDestNode = audioCtx.createMediaStreamDestination();
-            
-            // 用於發送給 Peer (發送: 自己的麥 + 廣播的音效) *不要包含別人的聲音以免回授*
             peerDestNode = audioCtx.createMediaStreamDestination();
 
             // C. 連接線路
             
-            // 1. 麥克風 -> Peer Destination (傳給別人)
+            // 1. 麥克風 -> Peer & Record
             micSourceNode.connect(micGainNode);
             micGainNode.connect(peerDestNode); 
-            
-            // 2. 麥克風 -> Record Destination (錄進去)
             micGainNode.connect(recordDestNode);
             
-            // *注意：麥克風不要連到 ctx.destination (避免自己聽到自己回音)*
-
-            // 3. 音效 -> 根據模式切換
-            // 音效總是連到錄音端與自己耳機(destination)
+            // 2. 音效 -> 自己聽 & 錄音
             soundboardGainNode.connect(audioCtx.destination);
             soundboardGainNode.connect(recordDestNode);
-            // 是否連到 peerDestNode (廣播) 由播放時的 toggle 決定，這裡先預留線路
+            
+            // 3. BGM -> 所有人聽 (Broadcast) & 錄音 & 自己聽
+            // BGM 預設就是廣播給所有人的
+            bgmGainNode.connect(audioCtx.destination); // 自己聽
+            bgmGainNode.connect(peerDestNode);         // 別人聽
+            bgmGainNode.connect(recordDestNode);       // 錄音
         }
 
-        // ================= 2. WebSocket Signaling =================
+        // ================= 新增：BGM 功能邏輯 =================
+
+        function toggleBGM() {
+            const btn = document.getElementById('bgm-toggle');
+            
+            if (!isBgmPlaying) {
+                // 開始播放 (生成 Drone 音效)
+                startDroneSound();
+                isBgmPlaying = true;
+                btn.textContent = "ON";
+                btn.classList.add('active');
+            } else {
+                // 停止播放
+                stopDroneSound();
+                isBgmPlaying = false;
+                btn.textContent = "OFF";
+                btn.classList.remove('active');
+            }
+        }
+
+        document.getElementById('bgm-volume').addEventListener('input', (e) => {
+            if(bgmGainNode) {
+                bgmGainNode.gain.value = e.target.value / 100;
+            }
+        });
+
+        // 使用 Oscillator 生成低頻氛圍音 (Cyberpunk Drone)
+        // 這樣就不需要載入外部 mp3 檔案，完全靠程式碼生成
+        function startDroneSound() {
+            const t = audioCtx.currentTime;
+            
+            // 基礎低頻 (Bass)
+            const osc1 = audioCtx.createOscillator();
+            osc1.type = 'sawtooth';
+            osc1.frequency.value = 55; // A1
+            
+            // 濾波器 (讓聲音變柔和，像遠處的引擎聲)
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 400;
+
+            // LFO (讓聲音有起伏)
+            const lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.1; // 10秒一個循環
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 200; // 濾波器變化範圍
+
+            // 連接: LFO -> LFO Gain -> Filter Frequency
+            lfo.connect(lfoGain);
+            lfoGain.connect(filter.frequency);
+
+            // 稍微高一點的和聲
+            const osc2 = audioCtx.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.value = 58; // 稍微走音，製造「拍頻(Beating)」效果
+
+            // 連接線路
+            osc1.connect(filter);
+            filter.connect(bgmGainNode);
+            osc2.connect(bgmGainNode); // Sine波比較乾淨，直接連
+
+            // 啟動
+            osc1.start(t);
+            osc2.start(t);
+            lfo.start(t);
+
+            // 儲存參照以便停止
+            bgmOscillators = [osc1, osc2, lfo];
+        }
+
+        function stopDroneSound() {
+            const t = audioCtx.currentTime;
+            bgmOscillators.forEach(osc => {
+                try {
+                    // 加上淡出效果避免爆音
+                    // 這裡簡單處理直接停止，實際應用可加 Gain 淡出
+                    osc.stop(t);
+                } catch(e) {}
+            });
+            bgmOscillators = [];
+        }
+
+        // ================= 2. WebSocket Signaling (不變) =================
 
         function connectSignaling() {
-            try {
-                ws = new WebSocket(SIGNALING_URL);
-            } catch (e) {
-                alert("WebSocket URL 錯誤: " + e.message);
-                return;
-            }
+            try { ws = new WebSocket(SIGNALING_URL); } 
+            catch (e) { alert("WebSocket URL 錯誤: " + e.message); return; }
 
             ws.onopen = () => {
                 console.log("WS Connected");
                 document.getElementById('connection-status').textContent = "伺服器已連線";
                 document.getElementById('connection-status').style.color = "var(--success-color)";
-                // 傳送加入訊息
                 sendSignal({ type: 'join', roomId: roomId, nickname: myNickname });
             };
-
             ws.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
                 handleSignalingData(data);
             };
-
             ws.onclose = (e) => {
                 document.getElementById('connection-status').textContent = "伺服器斷線";
                 document.getElementById('connection-status').style.color = "red";
-                console.log("WS Close:", e);
             };
-
-            ws.onerror = (e) => {
-                console.error("WS Error:", e);
-                // 嘗試顯示錯誤給使用者
-                alert("連線失敗！請檢查網路。");
-            };
+            ws.onerror = (e) => { console.error("WS Error:", e); };
         }
 
         async function handleSignalingData(data) {
             switch (data.type) {
                 case 'room-info':
-                    // 收到房間內現有成員列表，開始對每個人發起連線 (我是後來者)
                     data.members.forEach(member => {
-                        if (member.id !== myId) {
-                            createPeerConnection(member.id, member.nickname, true); // true = initiator (Offer端)
-                        }
+                        if (member.id !== myId) createPeerConnection(member.id, member.nickname, true);
                     });
                     break;
-
                 case 'user-joined':
-                    // 有新人加入，顯示通知，等待對方發 Offer
                     addSystemLog(`${data.nickname} 加入了房間`);
                     break;
-
                 case 'user-left':
                     removePeer(data.id);
                     addSystemLog(`成員已離開`);
                     break;
-
                 case 'signal':
-                    // WebRTC 信令交換 (Offer/Answer/ICE)
                     const peerId = data.from;
-                    if (!peers[peerId]) {
-                        // 如果是被動接收 Offer，先建立 PC
-                        // 這裡假設 signal 帶有 nickname (若無可從 server 優化，MVP 簡化處理)
-                        await createPeerConnection(peerId, "Unknown", false);
-                    }
+                    if (!peers[peerId]) await createPeerConnection(peerId, "Unknown", false);
                     const pc = peers[peerId].conn;
-
                     if (data.desc) {
                         await pc.setRemoteDescription(new RTCSessionDescription(data.desc));
                         if (data.desc.type === 'offer') {
@@ -464,62 +548,36 @@
                             sendSignal({ type: 'signal', to: peerId, desc: answer });
                         }
                     } else if (data.candidate) {
-                        try {
-                            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                        } catch (e) { console.error("ICE Error", e); }
+                        try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } 
+                        catch (e) { console.error("ICE Error", e); }
                     }
                     break;
-                
-                case 'welcome':
-                    myId = data.id;
-                    break;
+                case 'welcome': myId = data.id; break;
             }
         }
 
-        function sendSignal(msg) {
-            if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(msg));
-            }
-        }
+        function sendSignal(msg) { if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
 
-        // ================= 3. WebRTC Peer Connection (Mesh) =================
+        // ================= 3. WebRTC Peer Connection (不變) =================
 
         async function createPeerConnection(targetId, nickname, isInitiator) {
-            if (peers[targetId]) return; // 已存在
-
+            if (peers[targetId]) return; 
             const pc = new RTCPeerConnection(rtcConfig);
-            
-            // 建立 UI 卡片
             addPeerUI(targetId, nickname);
-
-            // A. 把我們處理過的音訊流 (麥 + 廣播音效) 加入 PC
-            // 注意：這裡不加 localStream，而是加 peerDestNode.stream
+            
+            // 加入音軌 (含 BGM)
             peerDestNode.stream.getTracks().forEach(track => pc.addTrack(track, peerDestNode.stream));
 
-            // B. 處理遠端串流
-            pc.ontrack = (event) => {
-                const remoteStream = event.streams[0];
-                handleRemoteStream(targetId, remoteStream);
-            };
-
-            // C. ICE Candidate 處理
+            pc.ontrack = (event) => handleRemoteStream(targetId, event.streams[0]);
             pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    sendSignal({ type: 'signal', to: targetId, candidate: event.candidate });
-                }
+                if (event.candidate) sendSignal({ type: 'signal', to: targetId, candidate: event.candidate });
             };
-
             pc.onconnectionstatechange = () => {
                 updatePeerStatusUI(targetId, pc.connectionState);
-                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                    removePeer(targetId);
-                }
+                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') removePeer(targetId);
             };
 
-            // 儲存參照
             peers[targetId] = { conn: pc, nickname: nickname };
-
-            // D. 如果是發起者，建立 Offer
             if (isInitiator) {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
@@ -527,25 +585,15 @@
             }
         }
 
-        // 處理遠端聲音 (路由到耳機 + 錄音)
         function handleRemoteStream(peerId, stream) {
-            // 使用 Web Audio 處理遠端聲音以便錄製
             const remoteSource = audioCtx.createMediaStreamSource(stream);
-            const remoteGain = audioCtx.createGain(); // 遠端音量控制
-            
-            // 1. 連到耳機 (監聽)
+            const remoteGain = audioCtx.createGain(); 
             remoteGain.connect(audioCtx.destination);
-            
-            // 2. 連到錄音 (錄製)
             remoteGain.connect(recordDestNode);
-
-            // 儲存 GainNode 以便 UI 控制
             if (peers[peerId]) {
                 peers[peerId].gainNode = remoteGain;
                 remoteSource.connect(remoteGain);
             }
-            
-            // 讓 AudioContext 保持活躍 (某些瀏覽器需要)
             const audioElem = new Audio();
             audioElem.srcObject = stream;
             audioElem.play().catch(e => console.log("Auto-play prevented", e));
@@ -554,14 +602,13 @@
         function removePeer(id) {
             if (peers[id]) {
                 peers[id].conn.close();
-                // 移除 UI
                 const el = document.getElementById(`peer-${id}`);
                 if (el) el.remove();
                 delete peers[id];
             }
         }
 
-        // ================= 4. UI 邏輯與 DOM 操作 =================
+        // ================= 4. UI 邏輯 (不變) =================
 
         function addPeerUI(id, nickname) {
             const container = document.getElementById('member-list');
@@ -584,96 +631,54 @@
 
         function updatePeerStatusUI(id, state) {
             const dot = document.getElementById(`status-${id}`);
-            if (dot) {
-                dot.className = `status-dot ${state === 'connected' ? 'connected' : ''}`;
-            }
+            if (dot) dot.className = `status-dot ${state === 'connected' ? 'connected' : ''}`;
         }
 
         function setPeerVolume(id, val) {
-            if (peers[id] && peers[id].gainNode) {
-                peers[id].gainNode.gain.value = val / 100;
-            }
+            if (peers[id] && peers[id].gainNode) peers[id].gainNode.gain.value = val / 100;
         }
 
-        // 顯示自己 (靜態)
-        function updateMemberList() {
-            // 可以在 member list 最上面加自己，MVP 略過
-        }
-        
-        function addSystemLog(msg) {
-            console.log(`[System] ${msg}`);
-        }
+        function updateMemberList() {}
+        function addSystemLog(msg) { console.log(`[System] ${msg}`); }
 
-        // ================= 5. 音效板與合成 (Web Audio) =================
+        // ================= 5. 音效板 (不變) =================
 
-        // 音量監聽
         document.getElementById('sb-volume').addEventListener('input', (e) => {
             const val = e.target.value;
             document.getElementById('sb-vol-val').textContent = val + '%';
-            if (soundboardGainNode) {
-                soundboardGainNode.gain.value = val / 100;
-            }
+            if (soundboardGainNode) soundboardGainNode.gain.value = val / 100;
         });
 
         function playEffect(name) {
             if (!audioCtx) return;
-
             const mode = document.querySelector('input[name="sb-mode"]:checked').value;
             const config = sfxConfig[name];
             
-            // 建立振盪器與噪聲源
             const t = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             
-            // 線路：Osc -> Gain -> MasterSBGain
             gain.connect(soundboardGainNode);
 
-            // 特殊路由邏輯：
-            // 若為 broadcast，我們需要暫時把 soundboardGainNode 連接到 peerDestNode
-            // 為了避免每次都 disconnect，我們使用一個開關 Gain
+            // 特殊路由: 若廣播模式，需額外連到 peerDestNode (因為 soundboardGainNode 預設只連本地+錄音)
+            // 等等... 在 setupAudioGraph 裡 soundboardGainNode 只連到 destination 和 recordDestNode
+            // 所以如果要廣播，這裡必須動態連接
             if (mode === 'broadcast') {
-                // 原本 soundboardGainNode 沒有連到 peerDestNode (預設)，這裡動態連一下不太好管理
-                // 改進：使用一個專門的 switchGain
-                // 這裡簡化：如果 broadcast，就讓聲音進入 peerDestNode，否則只進 local & record
-                const broadcastSwitch = audioCtx.createGain();
-                broadcastSwitch.gain.value = (mode === 'broadcast') ? 1 : 0;
-                
-                // 這裡稍微複雜，我們直接讓 soundboardGainNode 連接到 peerDestNode
-                // 但為了實現「只自己聽」，我們在按下按鈕時，建立臨時路徑
+                gain.connect(peerDestNode); 
             }
 
-            // --- 簡單的音效合成實作 ---
-            // 為了 MVP 簡單化，我們直接生成聲音到 soundboardGainNode
-            // 然後控制 soundboardGainNode -> peerDestNode 的連線？
-            // 不，太慢。我們直接假設：
-            // 1. soundboardGainNode 永久連到 destination & recordDestNode
-            // 2. 如果是 broadcast，我們 *額外* 建立一個連線到 peerDestNode
-            
-            const sourceConnect = () => {
-                gain.connect(soundboardGainNode);
-                if (mode === 'broadcast') {
-                   gain.connect(peerDestNode); // 讓遠端也聽到這個 source
-                }
-            };
-            
-            sourceConnect();
-
             if (config.type === 'noise') {
-                // 白噪音實作 (Applause / Whoosh)
                 const bufferSize = audioCtx.sampleRate * config.duration;
                 const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
                 const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                    data[i] = Math.random() * 2 - 1;
-                }
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
                 const noise = audioCtx.createBufferSource();
                 noise.buffer = buffer;
                 if (config.decay) {
                     gain.gain.setValueAtTime(1, t);
                     gain.gain.exponentialRampToValueAtTime(0.01, t + config.duration);
                 }
-                if (config.fade) { // Whoosh
+                if (config.fade) { 
                     gain.gain.setValueAtTime(0, t);
                     gain.gain.linearRampToValueAtTime(1, t + config.duration/2);
                     gain.gain.linearRampToValueAtTime(0, t + config.duration);
@@ -681,61 +686,61 @@
                 noise.connect(gain);
                 noise.start();
             } else {
-                // 振盪器實作
                 osc.type = config.type;
                 if (config.freq) {
                     if (Array.isArray(config.freq)) {
-                        // Laugh (wobble)
                         osc.frequency.setValueAtTime(config.freq[0], t);
                         osc.frequency.linearRampToValueAtTime(config.freq[1], t + 0.1);
                         osc.frequency.linearRampToValueAtTime(config.freq[2], t + 0.2);
                         osc.frequency.linearRampToValueAtTime(config.freq[3], t + 0.3);
                     } else {
                         osc.frequency.setValueAtTime(config.freq, t);
-                        if (config.endFreq) {
-                            osc.frequency.exponentialRampToValueAtTime(config.endFreq, t + config.duration);
-                        }
+                        if (config.endFreq) osc.frequency.exponentialRampToValueAtTime(config.endFreq, t + config.duration);
                     }
                 }
                 gain.gain.setValueAtTime(1, t);
                 gain.gain.exponentialRampToValueAtTime(0.01, t + config.duration);
-                
                 osc.connect(gain);
                 osc.start();
                 osc.stop(t + config.duration);
             }
         }
 
-        // ================= 6. 錄音功能 (MediaRecorder) =================
+        // ================= 6. 錄音功能 (修正手機下載問題) =================
 
         function toggleRecording() {
             const btn = document.getElementById('btn-record-toggle');
-            
             if (!isRecording) {
-                // 開始錄音
-                // 使用 recordDestNode.stream (包含 Mic + Remote + Soundboard)
                 const mixedStream = recordDestNode.stream;
                 
-                try {
-                    mediaRecorder = new MediaRecorder(mixedStream, { mimeType: 'audio/webm' });
-                } catch (e) {
-                    alert("瀏覽器不支援 WebM 錄製，請使用 Chrome/Firefox");
+                // 1. 自動偵測支援的 MIME Type (優先使用 mp4 給 iOS)
+                const types = [
+                    "audio/mp4", 
+                    "audio/webm;codecs=opus", 
+                    "audio/webm", 
+                    "audio/ogg"
+                ];
+                recordingMimeType = types.find(t => MediaRecorder.isTypeSupported(t));
+
+                if (!recordingMimeType) {
+                    alert("您的瀏覽器不支援錄音格式，請嘗試使用 Chrome, Firefox 或 Safari 最新版");
                     return;
                 }
 
+                try { 
+                    mediaRecorder = new MediaRecorder(mixedStream, { mimeType: recordingMimeType }); 
+                } 
+                catch (e) { alert("錄音啟動失敗: " + e.message); return; }
+                
                 recordedChunks = [];
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) recordedChunks.push(e.data);
-                };
-
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
                 mediaRecorder.onstop = exportRecording;
-
                 mediaRecorder.start();
+                
                 isRecording = true;
                 btn.textContent = "停止錄音";
+                btn.classList.add('active'); 
                 btn.style.background = "#333";
-                
-                // 計時器
                 recordingStartTime = Date.now();
                 recordInterval = setInterval(() => {
                     const diff = Math.floor((Date.now() - recordingStartTime) / 1000);
@@ -743,37 +748,51 @@
                     const s = (diff % 60).toString().padStart(2, '0');
                     document.getElementById('rec-timer').textContent = `${m}:${s}`;
                 }, 1000);
-
             } else {
-                // 停止錄音
                 mediaRecorder.stop();
                 isRecording = false;
                 btn.textContent = "開始錄音";
+                btn.classList.remove('active');
                 btn.style.background = "var(--danger-color)";
                 clearInterval(recordInterval);
             }
         }
 
         function exportRecording() {
-            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+            if (recordedChunks.length === 0) return;
+
+            const blob = new Blob(recordedChunks, { type: recordingMimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             
+            // 決定副檔名 (若 Mime 包含 mp4 則副檔名為 mp4，否則 webm)
+            const ext = recordingMimeType.includes('mp4') ? 'mp4' : 'webm';
+            const filename = `recording-${timestamp}.${ext}`;
+            
             a.style.display = 'block';
             a.href = url;
-            a.download = `recording-${timestamp}.webm`;
+            a.download = filename;
+            a.target = '_blank'; // [關鍵] 手機上若無法下載，開啟新分頁讓使用者手動存
+            
             a.textContent = `下載錄音 (${(blob.size/1024/1024).toFixed(2)} MB)`;
             a.className = 'btn-primary';
             a.style.marginTop = '10px';
             a.style.textDecoration = 'none';
             a.style.lineHeight = '40px';
             
+            // 提示文字
+            const tip = document.createElement('div');
+            tip.style.fontSize = '0.8rem';
+            tip.style.color = '#aaa';
+            tip.style.marginTop = '5px';
+            tip.textContent = '若手機無法自動下載，請長按按鈕並選擇「下載連結」或「儲存檔案」';
+
             const area = document.getElementById('download-area');
             area.innerHTML = '';
             area.appendChild(a);
+            area.appendChild(tip);
         }
-
     </script>
 </body>
 </html>
