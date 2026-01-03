@@ -456,6 +456,9 @@
                     <div id="connection-dot" class="status-dot"></div>
                     <span id="connection-text">Offline</span>
                 </div>
+                <button class="icon-btn" onclick="toggleScreenShare()" id="btn-screen" title="分享螢幕">
+                    <span>🖥️</span>
+                </button>
                 <button class="icon-btn" onclick="toggleCam()">
                     <span>📷</span>
                 </button>
@@ -569,6 +572,9 @@
         // Video & Record
         const peers = {};
         let localStream = null;
+        let camVideoTrack = null; // 儲存攝影機軌道
+        let screenVideoTrack = null; // 儲存螢幕分享軌道
+        let isScreenSharing = false;
         let isVideoEnabled = true;
         let mediaRecorder = null, recordedChunks = [];
         let isRecording = false, recordingStartTime = 0, recInterval = null;
@@ -650,6 +656,9 @@
                     video: { width: 640, height: 480, facingMode: "user" },
                     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
+                
+                // 儲存攝影機軌道以便切換回
+                camVideoTrack = localStream.getVideoTracks()[0];
 
                 setupUI();
                 setupAudioGraph();
@@ -925,10 +934,65 @@
             grid.appendChild(div);
         }
         function toggleCam() {
-            if(localStream) {
-                const t = localStream.getVideoTracks()[0];
-                if(t) { isVideoEnabled = !isVideoEnabled; t.enabled = isVideoEnabled; }
+            if(camVideoTrack) {
+                isVideoEnabled = !isVideoEnabled;
+                camVideoTrack.enabled = isVideoEnabled;
             }
+        }
+        
+        // === 8.1 Screen Share ===
+        async function toggleScreenShare() {
+            if (isScreenSharing) {
+                stopScreenShare();
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                screenVideoTrack = stream.getVideoTracks()[0];
+
+                // 監聽使用者從瀏覽器原生 UI 停止分享
+                screenVideoTrack.onended = () => stopScreenShare();
+
+                // 替換 PeerConnection 中的軌道
+                Object.values(peers).forEach(p => {
+                    const sender = p.conn.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(screenVideoTrack);
+                });
+
+                // 替換本地預覽
+                localStream.removeTrack(camVideoTrack);
+                localStream.addTrack(screenVideoTrack);
+                
+                isScreenSharing = true;
+                document.getElementById('btn-screen').classList.add('active');
+            } catch (err) {
+                console.error("螢幕分享失敗:", err);
+            }
+        }
+
+        function stopScreenShare() {
+            if (!isScreenSharing) return;
+
+            // 停止螢幕軌道
+            if (screenVideoTrack) {
+                screenVideoTrack.stop();
+                screenVideoTrack = null;
+            }
+
+            // 恢復攝影機軌道
+            const currentVideoTrack = localStream.getVideoTracks()[0];
+            if (currentVideoTrack) localStream.removeTrack(currentVideoTrack);
+            localStream.addTrack(camVideoTrack);
+
+            // 恢復 PeerConnection
+            Object.values(peers).forEach(p => {
+                const sender = p.conn.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) sender.replaceTrack(camVideoTrack);
+            });
+
+            isScreenSharing = false;
+            document.getElementById('btn-screen').classList.remove('active');
         }
 
         // === 9. Canvas Recording ===
