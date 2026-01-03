@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全維度多人視訊錄音室 (PRO UI)</title>
+    <title>全維度多人視訊錄音室 (Easy Bar BGM版)</title>
+    <!-- MediaPipe Selfie Segmentation (必要的 AI 核心) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
+    <!-- YouTube API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
     <style>
         /* === 全域變數定義 (Design Tokens) === */
         :root {
@@ -22,6 +26,7 @@
             --accent-warn: #f59e0b;    /* 警告 (黃) */
             --accent-retro: #eab308;   /* 復古音效色 */
             --accent-yt: #f43f5e;      /* YouTube 色 */
+            --accent-jazz: #8b5cf6;    /* 爵士紫 */
 
             /* 尺寸系統 */
             --header-height: 56px;
@@ -185,6 +190,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            /* 背景圖片顯示在容器上，作為備用或裝飾 */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
         
         #video-grid {
@@ -195,14 +204,16 @@
             max-width: 1600px;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             grid-auto-rows: 1fr;
+            background: transparent;
         }
 
         .video-card {
-            background: var(--bg-element);
+            background: rgba(39, 39, 42, 0.8);
+            backdrop-filter: blur(4px);
             border-radius: 12px;
             overflow: hidden;
             position: relative;
-            border: 2px solid transparent;
+            border: 2px solid rgba(255,255,255,0.1);
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             transition: border-color 0.2s;
         }
@@ -255,7 +266,112 @@
             color: var(--text-muted);
         }
 
-        /* 1. Master Record */
+        /* Chatroom Styles */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 250px;
+            background: var(--bg-element);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .chat-msg {
+            font-size: 0.85rem;
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 90%;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+        .chat-msg.me {
+            align-self: flex-end;
+            background: var(--accent-primary);
+            color: white;
+        }
+        .chat-msg.other {
+            align-self: flex-start;
+            background: #3f3f46;
+            color: var(--text-main);
+        }
+        .chat-meta {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-bottom: 2px;
+            font-weight: bold;
+        }
+        .chat-file {
+            display: block;
+            margin-top: 4px;
+            background: rgba(0,0,0,0.2);
+            padding: 6px;
+            border-radius: 4px;
+            text-decoration: none;
+            color: inherit;
+            font-size: 0.8rem;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .chat-file:hover { background: rgba(0,0,0,0.3); }
+        .chat-progress {
+            display: block;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            margin-top: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .chat-progress-bar {
+            height: 100%;
+            background: white;
+            width: 0%;
+            transition: width 0.2s;
+        }
+        .chat-input-area {
+            display: flex;
+            padding: 8px;
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border-color);
+            gap: 5px;
+        }
+        .chat-input {
+            flex: 1;
+            background: var(--bg-element);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .chat-send-btn {
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 0 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .chat-file-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            width: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .chat-file-btn:hover { background: #3f3f46; color: white; }
+
+        /* Master Record */
         .record-display {
             background: #1c1c1e;
             border: 1px solid var(--border-color);
@@ -308,108 +424,62 @@
             text-align: center;
         }
 
-        /* 2. Soundboard (Grid Style) */
-        .sb-tabs {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 12px;
-            background: var(--bg-element);
-            padding: 4px;
-            border-radius: var(--radius-md);
-        }
-        .sb-tab {
-            flex: 1;
-            padding: 6px 0;
-            font-size: 0.75rem;
-            border: none;
-            background: transparent;
-            color: var(--text-muted);
-            cursor: pointer;
-            border-radius: var(--radius-sm);
-            transition: all 0.2s;
-        }
-        .sb-tab.active { background: var(--bg-panel); color: var(--text-main); font-weight: 600; shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        
-        .sb-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            max-height: 240px;
-            overflow-y: auto;
-            padding-right: 4px;
-        }
-        .pad-btn {
-            aspect-ratio: 1.2; /* 方形按鈕 */
-            background: var(--bg-element);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            color: var(--text-muted);
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-size: 0.75rem;
-            gap: 4px;
-            transition: all 0.1s;
-        }
+        /* Soundboard */
+        .sb-tabs { display: flex; gap: 4px; margin-bottom: 12px; background: var(--bg-element); padding: 4px; border-radius: var(--radius-md); overflow-x: auto; }
+        .sb-tab { padding: 6px 12px; font-size: 0.75rem; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); transition: all 0.2s; white-space: nowrap; }
+        .sb-tab.active { background: var(--bg-panel); color: var(--text-main); font-weight: 600; border: 1px solid var(--border-color); }
+        .sb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px; }
+        .pad-btn { aspect-ratio: 1.2; background: var(--bg-element); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 0.75rem; gap: 4px; transition: all 0.1s; text-align: center; }
         .pad-btn:hover { background: #3f3f46; color: white; }
         .pad-btn:active { transform: scale(0.95); background: var(--accent-primary); border-color: var(--accent-primary); color: white; }
         .pad-btn.retro-style { border-bottom: 3px solid var(--accent-retro); }
         .pad-btn.retro-style:active { border-bottom-width: 1px; transform: translateY(2px); }
 
-        /* 3. Sliders (Volume) */
-        .vol-control {
-            display: flex; align-items: center; gap: 10px;
-            margin-top: 10px; font-size: 0.8rem; color: var(--text-muted);
-        }
-        input[type=range] {
-            flex: 1; -webkit-appearance: none; background: transparent;
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 4px; background: var(--bg-element); border-radius: 2px;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
-            background: var(--text-main); margin-top: -5px; cursor: pointer;
-            box-shadow: 0 0 0 2px var(--bg-panel);
-        }
+        /* Sliders */
+        .vol-control { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); }
+        input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: var(--bg-element); border-radius: 2px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: var(--text-main); margin-top: -5px; cursor: pointer; box-shadow: 0 0 0 2px var(--bg-panel); }
 
-        /* 4. YouTube Section */
-        .yt-input-group {
-            display: flex; gap: 8px; margin-bottom: 10px;
-        }
-        .styled-input {
-            flex: 1; background: var(--bg-element); border: 1px solid var(--border-color);
-            color: white; padding: 8px; border-radius: var(--radius-sm); font-size: 0.85rem;
-        }
-        .action-btn {
-            background: var(--bg-element); border: 1px solid var(--border-color);
-            color: var(--text-main); padding: 0 12px; border-radius: var(--radius-sm); cursor: pointer;
-        }
+        /* YouTube */
+        .yt-input-group { display: flex; gap: 8px; margin-bottom: 10px; }
+        .styled-input { flex: 1; background: var(--bg-element); border: 1px solid var(--border-color); color: white; padding: 8px; border-radius: var(--radius-sm); font-size: 0.85rem; }
+        .action-btn { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-main); padding: 0 12px; border-radius: var(--radius-sm); cursor: pointer; }
         .action-btn:hover { background: #3f3f46; }
         .action-btn.play { background: var(--accent-yt); border-color: var(--accent-yt); color: white; }
-        
-        .capture-btn {
-            width: 100%; padding: 8px;
-            background: transparent; border: 1px dashed var(--border-color);
-            color: var(--text-muted); border-radius: var(--radius-sm);
-            font-size: 0.8rem; cursor: pointer; margin-top: 8px;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-        }
+        .capture-btn { width: 100%; padding: 8px; background: transparent; border: 1px dashed var(--border-color); color: var(--text-muted); border-radius: var(--radius-sm); font-size: 0.8rem; cursor: pointer; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .capture-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
         .capture-btn.active { background: rgba(59, 130, 246, 0.1); border-style: solid; border-color: var(--accent-primary); color: var(--accent-primary); }
 
+        /* Background Controls */
+        .bg-presets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin-bottom: 8px; }
+        .bg-btn { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-muted); padding: 6px; font-size: 0.75rem; cursor: pointer; border-radius: var(--radius-sm); transition: all 0.2s; }
+        .bg-btn:hover { background: #3f3f46; color: white; }
+        .file-upload-label { display: block; width: 100%; padding: 8px; border: 1px dashed var(--border-color); text-align: center; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); transition: border-color 0.2s; }
+        .file-upload-label:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+        #bg-upload { display: none; }
+        
+        .vb-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            background: #27272a;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        .vb-status {
+            font-size: 0.75rem;
+            color: #aaa;
+        }
+        .vb-status.on { color: var(--accent-success); font-weight: bold; }
+
         /* Hidden Elements */
-        #mixer-canvas, #yt-player-container { display: none; }
+        #mixer-canvas, #yt-player-container, #vb-canvas { display: none; }
 
         /* Switch Toggle */
-        .mode-switch {
-            display: flex; background: var(--bg-element); border-radius: 20px; padding: 2px;
-        }
-        .mode-switch label {
-            padding: 4px 12px; font-size: 0.75rem; cursor: pointer; border-radius: 16px; color: var(--text-muted); transition: 0.2s;
-        }
+        .mode-switch { display: flex; background: var(--bg-element); border-radius: 20px; padding: 2px; }
+        .mode-switch label { padding: 4px 12px; font-size: 0.75rem; cursor: pointer; border-radius: 16px; color: var(--text-muted); transition: 0.2s; }
         .mode-switch input { display: none; }
         .mode-switch input:checked + span { background: var(--border-color); color: white; font-weight: 600; }
 
@@ -420,25 +490,24 @@
             #video-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
-    <!-- YouTube API -->
-    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
 
-    <!-- 隱藏的混音與播放器 -->
+    <!-- 隱藏的 Canvas 處理區 -->
     <canvas id="mixer-canvas" width="1280" height="720"></canvas>
+    <canvas id="vb-canvas" width="640" height="480"></canvas> <!-- Virtual BG Canvas -->
     <div id="yt-player-container"><div id="yt-player"></div></div>
 
     <!-- 登入 Modal -->
     <div id="login-screen">
         <div class="login-card">
             <h1 class="login-title">OMNI STUDIO</h1>
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">全維度即時視訊混音系統</p>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">全維度即時視訊混音系統 (AI Powered)</p>
             <input type="text" id="nickname" class="login-input" placeholder="Enter Nickname" maxlength="10">
             <input type="text" id="roomId" class="login-input" placeholder="Room ID" value="LIVE-01">
             <button class="login-btn" onclick="joinRoom()">ENTER STUDIO</button>
             <div style="margin-top:15px; font-size:0.8rem; color:var(--accent-warn);">
-                *建議使用電腦並配戴耳機以獲得最佳體驗
+                *建議使用電腦並配戴耳機 (AI去背需較高效能)
             </div>
         </div>
     </div>
@@ -477,6 +546,28 @@
             <!-- 右側：控制台 -->
             <div class="sidebar">
                 
+                <!-- 聊天室 -->
+                <div class="panel-section" style="padding-bottom: 10px;">
+                    <div class="panel-header" style="margin-bottom: 8px;">
+                        <span class="panel-title">CHATROOM</span>
+                        <span style="font-size:0.7rem; color:#666;">P2P ENCRYPTED</span>
+                    </div>
+                    <div class="chat-container">
+                        <div id="chat-messages" class="chat-messages">
+                            <div class="chat-msg other">
+                                <div class="chat-meta">System</div>
+                                歡迎！可拖曳檔案至此傳送。
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <input type="text" id="chat-input" class="chat-input" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+                            <button class="chat-file-btn" onclick="document.getElementById('chat-file-input').click()" title="傳送檔案">📎</button>
+                            <input type="file" id="chat-file-input" style="display:none" onchange="handleFileSelect(this)">
+                            <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 錄製模組 -->
                 <div class="panel-section">
                     <div class="panel-header">
@@ -493,6 +584,33 @@
                     </div>
                 </div>
 
+                <!-- 虛擬背景控制模組 (升級版) -->
+                <div class="panel-section">
+                    <div class="panel-header">
+                        <span class="panel-title">AI STUDIO BG</span>
+                    </div>
+                    
+                    <div class="vb-toggle">
+                        <span style="font-size: 0.8rem; color: white;">Virtual Background</span>
+                        <button id="vb-btn" class="action-btn" onclick="toggleVirtualBackground()">Enable</button>
+                    </div>
+
+                    <div class="bg-presets">
+                        <button class="bg-btn" onclick="changeBg('https://images.unsplash.com/photo-1593697821252-0c9137d9fc45?q=80&w=1280')">Newsroom</button>
+                        <button class="bg-btn" onclick="changeBg('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1280')">Cyberpunk</button>
+                        <button class="bg-btn" onclick="changeBg('https://images.unsplash.com/photo-1493804714600-6edb1cd93738?q=80&w=1280')">Cozy</button>
+                        <button class="bg-btn" onclick="changeBg('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1280')">Abstract</button>
+                    </div>
+                    <div class="yt-input-group">
+                        <input type="text" id="bg-url-input" class="styled-input" placeholder="Image URL">
+                        <button class="action-btn" onclick="changeBg(document.getElementById('bg-url-input').value)">Set</button>
+                    </div>
+                    <label class="file-upload-label">
+                        📂 Upload Custom Image
+                        <input type="file" id="bg-upload" accept="image/*" onchange="handleBgUpload(this)">
+                    </label>
+                </div>
+
                 <!-- 音效板模組 -->
                 <div class="panel-section" style="flex:1; display:flex; flex-direction:column; min-height: 300px;">
                     <div class="panel-header">
@@ -503,13 +621,8 @@
                         </div>
                     </div>
                     
-                    <div class="sb-tabs" id="sb-tabs-container">
-                        <!-- JS Generated -->
-                    </div>
-
-                    <div class="sb-grid" id="sb-content-area">
-                        <!-- JS Generated -->
-                    </div>
+                    <div class="sb-tabs" id="sb-tabs-container"></div>
+                    <div class="sb-grid" id="sb-content-area"></div>
 
                     <div class="vol-control">
                         <span>SFX Vol</span>
@@ -517,14 +630,14 @@
                     </div>
                 </div>
 
-                <!-- 環境音效 (Drone) -->
+                <!-- 環境音效 (Easy Bar BGM) -->
                 <div class="panel-section">
                     <div class="panel-header">
-                        <span class="panel-title">ATMOSPHERE</span>
+                        <span class="panel-title" style="color:var(--accent-jazz);">EASY BAR BGM</span>
                         <button id="bgm-toggle" class="icon-btn" style="font-size:0.7rem; padding:2px 8px;" onclick="toggleBGM()">OFF</button>
                     </div>
                     <div class="vol-control" style="margin-top:0;">
-                        <span>Drone</span>
+                        <span>Jazz Vol</span>
                         <input type="range" id="bgm-volume" min="0" max="100" value="30">
                     </div>
                 </div>
@@ -552,7 +665,7 @@
         </div>
     </div>
 
-    <!-- 腳本邏輯 (功能保持不變，僅適配新 UI ID) -->
+    <!-- 腳本邏輯 -->
     <script>
         // === 全域變數 ===
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -568,34 +681,523 @@
         let recordDestNode, peerDestNode, tabAudioSource;
         let bgmOscillators = [];
         let isBgmPlaying = false;
+        let bgmLoopTimeout = null;
 
-        // Video & Record
+        // Video & MediaPipe
         const peers = {};
         let localStream = null;
-        let camVideoTrack = null; // 儲存攝影機軌道
-        let screenVideoTrack = null; // 儲存螢幕分享軌道
+        let camVideoTrack = null; 
+        let screenVideoTrack = null; 
         let isScreenSharing = false;
         let isVideoEnabled = true;
+        let isVbActive = false;
+        let segmentation = null;
+        let vbCanvas, vbCtx;
+        let rawVideoElement; // 隱藏的原始攝影機視訊，用於餵給 MediaPipe
+        
+        // Background Image (Shared between Canvas & Virtual BG)
+        const bgImage = new Image();
+        bgImage.crossOrigin = "anonymous";
+        let currentVirtualBgImage = bgImage; // Pointer for VB
+
+        // Record
         let mediaRecorder = null, recordedChunks = [];
         let isRecording = false, recordingStartTime = 0, recInterval = null;
         
-        // Canvas & Background
+        // Chat
+        const dataChannels = {};
+        const fileBuffers = {};
+
+        // Canvas Mixer
         const canvas = document.getElementById('mixer-canvas');
         const ctx = canvas.getContext('2d');
         let canvasInterval = null;
-        
-        // 載入 Chill 背景圖片 (虛擬攝影棚)
-        const bgImage = new Image();
-        // [關鍵修正] 設定 crossOrigin 避免 Canvas Tainted 無法錄製
-        bgImage.crossOrigin = "anonymous";
-        bgImage.src = "https://images.unsplash.com/photo-1593697821252-0c9137d9fc45?q=80&w=1280&auto=format&fit=crop"; 
-        
+
         // YouTube
-        let ytPlayer, isYtReady = false, currentYtId = "";
+        let ytPlayer, isYtReady = false;
 
         const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-        // === 1. 音效庫定義 (Same as before) ===
+        // === 1. 初始化 & MediaPipe Setup ===
+        async function joinRoom() {
+            const nickInput = document.getElementById('nickname');
+            const roomInput = document.getElementById('roomId');
+            if (!nickInput.value || !roomInput.value) { alert("請輸入代號與房號"); return; }
+            myNickname = nickInput.value; roomId = roomInput.value;
+
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                
+                // Get User Media
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480, facingMode: "user" },
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                });
+                
+                camVideoTrack = localStream.getVideoTracks()[0];
+
+                // Create hidden video element for MediaPipe input
+                rawVideoElement = document.createElement('video');
+                rawVideoElement.autoplay = true;
+                rawVideoElement.playsInline = true;
+                rawVideoElement.srcObject = new MediaStream([camVideoTrack]);
+                rawVideoElement.style.display = 'none';
+                document.body.appendChild(rawVideoElement);
+
+                // Init MediaPipe
+                initSelfieSegmentation();
+
+                setupUI();
+                setupAudioGraph();
+                initSoundboard(); 
+                startCanvasLoop();
+                connectSignaling();
+            } catch (err) { alert("無法存取設備: " + err.message); }
+        }
+
+        function initSelfieSegmentation() {
+            segmentation = new SelfieSegmentation({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`;
+            }});
+            segmentation.setOptions({
+                modelSelection: 1, // 1 = landscape (faster)
+            });
+            segmentation.onResults(onSegmentationResults);
+            
+            vbCanvas = document.getElementById('vb-canvas');
+            vbCtx = vbCanvas.getContext('2d');
+        }
+
+        // 虛擬背景處理迴圈
+        function onSegmentationResults(results) {
+            if (!isVbActive) return;
+            
+            vbCtx.save();
+            vbCtx.clearRect(0, 0, vbCanvas.width, vbCanvas.height);
+            
+            // Draw Segmentation Mask
+            vbCtx.drawImage(results.segmentationMask, 0, 0, vbCanvas.width, vbCanvas.height);
+
+            // Composition
+            vbCtx.globalCompositeOperation = 'source-in';
+            vbCtx.drawImage(results.image, 0, 0, vbCanvas.width, vbCanvas.height); // User
+
+            vbCtx.globalCompositeOperation = 'destination-over';
+            if (currentVirtualBgImage.complete) {
+                vbCtx.drawImage(currentVirtualBgImage, 0, 0, vbCanvas.width, vbCanvas.height); // BG
+            } else {
+                vbCtx.fillStyle = '#00FF00'; // Fallback green
+                vbCtx.fillRect(0, 0, vbCanvas.width, vbCanvas.height);
+            }
+
+            vbCtx.restore();
+        }
+
+        // 啟動/關閉虛擬背景
+        async function toggleVirtualBackground() {
+            if (isScreenSharing) {
+                alert("請先關閉螢幕分享");
+                return;
+            }
+
+            const btn = document.getElementById('vb-btn');
+            
+            if (!isVbActive) {
+                // Turn ON
+                isVbActive = true;
+                btn.textContent = "Disable";
+                btn.classList.add('play');
+                
+                // Start processing loop
+                const processFrame = async () => {
+                    if (!isVbActive) return;
+                    await segmentation.send({image: rawVideoElement});
+                    requestAnimationFrame(processFrame);
+                };
+                processFrame();
+
+                // Get Stream from Canvas
+                const stream = vbCanvas.captureStream(30);
+                const vbTrack = stream.getVideoTracks()[0];
+                
+                // Replace Local Preview
+                const localVideo = document.getElementById('video-local');
+                if (localVideo) localVideo.srcObject = stream;
+
+                // Replace Sender Track
+                replaceVideoTrack(vbTrack);
+
+            } else {
+                // Turn OFF
+                isVbActive = false;
+                btn.textContent = "Enable";
+                btn.classList.remove('play');
+                
+                // Restore Raw Camera
+                const localVideo = document.getElementById('video-local');
+                if (localVideo) localVideo.srcObject = new MediaStream([camVideoTrack]);
+                
+                replaceVideoTrack(camVideoTrack);
+            }
+        }
+
+        function replaceVideoTrack(newTrack) {
+            // Update Peers
+            Object.values(peers).forEach(p => {
+                const sender = p.conn.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) sender.replaceTrack(newTrack);
+            });
+            // Update Local Stream object (for consistency)
+            const oldTrack = localStream.getVideoTracks()[0];
+            localStream.removeTrack(oldTrack);
+            localStream.addTrack(newTrack);
+        }
+
+        // === UI & BG Control ===
+        function changeBg(url) {
+            if (!url) return;
+            bgImage.src = url;
+            // Update UI background instantly
+            const stage = document.querySelector('.stage-container');
+            if (stage) stage.style.backgroundImage = `url('${url}')`;
+        }
+        
+        function handleBgUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) { changeBg(e.target.result); }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // === Setup UI & Audio (Same as before) ===
+        function setupUI() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'flex';
+            document.getElementById('header-info').textContent = `${roomId} | ${myNickname}`;
+            addVideoCard('local', myNickname, true);
+            const v = document.getElementById('video-local');
+            v.srcObject = localStream; v.muted = true;
+            changeBg("https://images.unsplash.com/photo-1593697821252-0c9137d9fc45?q=80&w=1280&auto=format&fit=crop");
+        }
+
+        function setupAudioGraph() {
+            micSourceNode = audioCtx.createMediaStreamSource(localStream);
+            micGainNode = audioCtx.createGain(); 
+            soundboardGainNode = audioCtx.createGain(); soundboardGainNode.gain.value = 0.8;
+            bgmGainNode = audioCtx.createGain(); bgmGainNode.gain.value = 0.3;
+            recordDestNode = audioCtx.createMediaStreamDestination();
+            peerDestNode = audioCtx.createMediaStreamDestination();
+            micSourceNode.connect(micGainNode);
+            micGainNode.connect(peerDestNode);
+            micGainNode.connect(recordDestNode);
+            soundboardGainNode.connect(audioCtx.destination);
+            soundboardGainNode.connect(recordDestNode);
+            bgmGainNode.connect(audioCtx.destination);
+            bgmGainNode.connect(recordDestNode);
+            bgmGainNode.connect(peerDestNode); 
+        }
+
+        // === WebRTC & Signaling ===
+        function connectSignaling() {
+            ws = new WebSocket(SIGNALING_URL);
+            ws.onopen = () => {
+                document.getElementById('connection-text').textContent = "Online";
+                document.getElementById('connection-dot').classList.add('active');
+                sendSignal({ type: 'join', roomId, nickname: myNickname });
+            };
+            ws.onmessage = (e) => handleSignalingData(JSON.parse(e.data));
+        }
+
+        async function handleSignalingData(data) {
+            switch (data.type) {
+                case 'room-info':
+                    data.members.forEach(m => { if (m.id !== myId) createPeerConnection(m.id, m.nickname, true); });
+                    break;
+                case 'user-joined': console.log("User joined"); break;
+                case 'user-left': removePeer(data.id); break;
+                case 'yt-sync': handleYtSync(data); break;
+                case 'signal':
+                    const peerId = data.from;
+                    if (!peers[peerId]) await createPeerConnection(peerId, "Unknown", false);
+                    const pc = peers[peerId].conn;
+                    if (data.desc) {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data.desc));
+                        if (data.desc.type === 'offer') {
+                            const answer = await pc.createAnswer();
+                            await pc.setLocalDescription(answer);
+                            sendSignal({ type: 'signal', to: peerId, desc: answer });
+                        }
+                    } else if (data.candidate) { try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e){} }
+                    break;
+                case 'welcome': myId = data.id; break;
+            }
+        }
+        function sendSignal(msg) { if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
+
+        async function createPeerConnection(targetId, nickname, isInitiator) {
+            if (peers[targetId]) return;
+            const pc = new RTCPeerConnection(rtcConfig);
+            addVideoCard(targetId, nickname, false);
+
+            localStream.getVideoTracks().forEach(t => pc.addTrack(t, localStream));
+            peerDestNode.stream.getAudioTracks().forEach(t => pc.addTrack(t, peerDestNode.stream));
+
+            if (isInitiator) {
+                const channel = pc.createDataChannel("chat");
+                setupDataChannel(channel, targetId);
+            } else {
+                pc.ondatachannel = (e) => setupDataChannel(e.channel, targetId);
+            }
+
+            pc.ontrack = (event) => {
+                const stream = event.streams[0];
+                if (event.track.kind === 'video') {
+                    const v = document.getElementById(`video-${targetId}`);
+                    v.srcObject = stream;
+                } else {
+                    const src = audioCtx.createMediaStreamSource(stream);
+                    const gain = audioCtx.createGain();
+                    gain.connect(audioCtx.destination);
+                    gain.connect(recordDestNode);
+                    src.connect(gain);
+                    const aud = new Audio(); aud.srcObject = stream; aud.muted = true; aud.play().catch(e=>{});
+                }
+            };
+            pc.onicecandidate = (e) => { if(e.candidate) sendSignal({ type: 'signal', to: targetId, candidate: e.candidate }); };
+            pc.onconnectionstatechange = () => { if(pc.connectionState==='disconnected') removePeer(targetId); };
+
+            peers[targetId] = { conn: pc };
+            if (isInitiator) {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                sendSignal({ type: 'signal', to: targetId, desc: offer });
+            }
+        }
+        function removePeer(id) {
+            if (peers[id]) { 
+                peers[id].conn.close(); 
+                document.getElementById(`card-${id}`).remove(); 
+                delete peers[id]; 
+                if (dataChannels[id]) delete dataChannels[id];
+            }
+        }
+
+        // === Chat & Data Channel (Enhanced) ===
+        function setupDataChannel(channel, peerId) {
+            dataChannels[peerId] = channel;
+            channel.onopen = () => console.log(`Chat connected`);
+            channel.onmessage = (event) => handleDataMessage(event, peerId);
+        }
+
+        function handleDataMessage(event, peerId) {
+            try {
+                const msg = JSON.parse(event.data);
+                const senderName = peers[peerId]?.nickname || "User";
+                if (msg.type === 'text') appendChatMessage(senderName, msg.content, 'other');
+                else if (msg.type === 'file-chunk') handleFileChunk(msg, senderName);
+            } catch (e) {}
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            const payload = JSON.stringify({ type: 'text', content: text });
+            Object.values(dataChannels).forEach(ch => { if (ch.readyState === 'open') ch.send(payload); });
+            appendChatMessage('Me', text, 'me');
+            input.value = '';
+        }
+
+        function appendChatMessage(sender, text, type) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `chat-msg ${type}`;
+            div.innerHTML = `<div class="chat-meta">${sender}</div>${text.includes('<a') ? text : escapeHtml(text)}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 10 * 1024 * 1024) return alert("檔案上限 10MB");
+
+            // Progress Feedback
+            appendChatMessage('Me', `⏳ Uploading: ${file.name}...`, 'me');
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const dataUrl = e.target.result;
+                const fileId = Date.now().toString();
+                const chunkSize = 16 * 1024;
+                const totalChunks = Math.ceil(dataUrl.length / chunkSize);
+
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = dataUrl.slice(i * chunkSize, (i + 1) * chunkSize);
+                    const payload = JSON.stringify({
+                        type: 'file-chunk', fileId, name: file.name, mime: file.type,
+                        chunk, index: i, total: totalChunks
+                    });
+                    Object.values(dataChannels).forEach(ch => { if (ch.readyState === 'open') ch.send(payload); });
+                    await new Promise(r => setTimeout(r, 5)); // throttling
+                }
+                appendChatMessage('Me', `<a href="${dataUrl}" download="${file.name}" class="chat-file">📄 ${file.name} (Sent)</a>`, 'me');
+            };
+            reader.readAsDataURL(file);
+            input.value = '';
+        }
+
+        function handleFileChunk(msg, senderName) {
+            if (!fileBuffers[msg.fileId]) fileBuffers[msg.fileId] = { chunks: [], receivedCount: 0, total: msg.total, name: msg.name };
+            const buffer = fileBuffers[msg.fileId];
+            buffer.chunks[msg.index] = msg.chunk;
+            buffer.receivedCount++;
+            
+            if (buffer.receivedCount === buffer.total) {
+                const url = buffer.chunks.join('');
+                appendChatMessage(senderName, `<a href="${url}" download="${buffer.name}" class="chat-file">📄 ${buffer.name}</a>`, 'other');
+                delete fileBuffers[msg.fileId];
+            }
+        }
+
+        function escapeHtml(text) { return text.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#039;' })[m]); }
+
+        // === Helpers ===
+        function addVideoCard(id, name, isLocal) {
+            const grid = document.getElementById('video-grid');
+            const div = document.createElement('div');
+            div.className = 'video-card'; div.id = `card-${id}`;
+            div.innerHTML = `<video id="video-${id}" autoplay playsinline ${isLocal?'muted':''}></video><div class="user-label">${name}</div>`;
+            grid.appendChild(div);
+        }
+        function toggleCam() {
+            if(camVideoTrack) { isVideoEnabled = !isVideoEnabled; camVideoTrack.enabled = isVideoEnabled; }
+        }
+        function resumeAudio() { if(audioCtx.state === 'suspended') audioCtx.resume(); }
+
+        // === Screen Share ===
+        async function toggleScreenShare() {
+            if (isScreenSharing) return stopScreenShare();
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                screenVideoTrack = stream.getVideoTracks()[0];
+                screenVideoTrack.onended = stopScreenShare;
+                replaceVideoTrack(screenVideoTrack);
+                const localVideo = document.getElementById('video-local');
+                if(localVideo) localVideo.srcObject = stream;
+                isScreenSharing = true;
+                document.getElementById('btn-screen').classList.add('active');
+                // Disable VB if active
+                if(isVbActive) toggleVirtualBackground();
+            } catch (err) {}
+        }
+        function stopScreenShare() {
+            if (!isScreenSharing) return;
+            screenVideoTrack.stop();
+            replaceVideoTrack(camVideoTrack);
+            const localVideo = document.getElementById('video-local');
+            if(localVideo) localVideo.srcObject = new MediaStream([camVideoTrack]);
+            isScreenSharing = false;
+            document.getElementById('btn-screen').classList.remove('active');
+        }
+
+        // === Recording & Canvas ===
+        function startCanvasLoop() {
+            canvasInterval = setInterval(() => {
+                if (bgImage.complete) {
+                    ctx.drawImage(bgImage, 0, 0, 1280, 720);
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.4)"; ctx.fillRect(0, 0, 1280, 720);
+                } else { ctx.fillStyle = '#18181b'; ctx.fillRect(0, 0, 1280, 720); }
+
+                const videos = [];
+                const localVideo = document.getElementById('video-local');
+                if (localVideo && localVideo.readyState >= 2 && isVideoEnabled) videos.push({ el: localVideo, name: myNickname });
+                Object.keys(peers).forEach(id => {
+                    const v = document.getElementById(`video-${id}`);
+                    if (v && v.readyState >= 2) videos.push({ el: v, name: peers[id].nickname });
+                });
+
+                if (videos.length === 0) return;
+                
+                let cols = 1, rows = 1;
+                if (videos.length === 2) { cols = 2; rows = 1; }
+                else if (videos.length > 2) { cols = 2; rows = 2; }
+                if (videos.length > 4) { cols = 3; rows = 2; }
+
+                const padding = 20;
+                const cellW = (1280 - padding*(cols+1)) / cols;
+                const cellH = (720 - padding*(rows+1)) / rows;
+
+                videos.forEach((item, i) => {
+                    const c = i % cols, r = Math.floor(i / cols);
+                    const x = padding + c * (cellW + padding);
+                    const y = padding + r * (cellH + padding);
+                    
+                    ctx.save();
+                    ctx.beginPath(); ctx.rect(x, y, cellW, cellH); ctx.clip();
+                    
+                    const vW = item.el.videoWidth, vH = item.el.videoHeight;
+                    if(vW && vH) {
+                        const scale = Math.max(cellW/vW, cellH/vH);
+                        const renderW = vW * scale, renderH = vH * scale;
+                        ctx.drawImage(item.el, x + (cellW-renderW)/2, y + (cellH-renderH)/2, renderW, renderH);
+                    }
+                    ctx.restore();
+                    
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.lineWidth = 4; ctx.strokeRect(x, y, cellW, cellH);
+                    ctx.fillStyle = "white"; ctx.font = "bold 20px Arial"; ctx.fillText(item.name, x + 20, y + cellH - 20);
+                });
+            }, 33);
+        }
+
+        async function toggleRecording() {
+            const btn = document.getElementById('btn-record');
+            if(!isRecording) {
+                if (audioCtx.state === 'suspended') await audioCtx.resume();
+                const stream = canvas.captureStream(30);
+                if (recordDestNode) recordDestNode.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+                
+                try { mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); }
+                catch(e) { try{ mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4' }); } catch(e2){ return alert("不支援錄影"); } }
+
+                recordedChunks = [];
+                mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = saveFile;
+                mediaRecorder.start(1000);
+                
+                isRecording = true; 
+                btn.innerHTML = `<span class="rec-icon">■</span> STOP RECORDING`; 
+                btn.classList.add('active');
+                
+                recordingStartTime = Date.now();
+                recInterval = setInterval(() => {
+                    const s = Math.floor((Date.now()-recordingStartTime)/1000);
+                    const m = Math.floor(s/60).toString().padStart(2,'0');
+                    const ss = (s%60).toString().padStart(2,'0');
+                    document.getElementById('rec-timer').innerText = `00:${m}:${ss}`;
+                }, 1000);
+            } else {
+                mediaRecorder.stop(); 
+                isRecording = false; 
+                btn.innerHTML = `<span class="rec-icon">●</span> START RECORDING`; 
+                btn.classList.remove('active');
+                clearInterval(recInterval);
+            }
+        }
+        function saveFile() {
+            if(recordedChunks.length===0) return;
+            const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `REC-${Date.now()}.webm`; a.textContent = "Download File";
+            a.className = "download-link";
+            document.getElementById('download-area').innerHTML = '';
+            document.getElementById('download-area').appendChild(a);
+        }
+
+        // === Other Logic (Soundboard, YouTube) ===
+        // 1. Sound Library (Restored)
         const soundLibrary = {
             "Reactions": [
                 { id: "applause", label: "👏 Applause", type: "noise", dur: 2, env: "fade" },
@@ -639,52 +1241,6 @@
             ]
         };
 
-        // === YouTube API ===
-        function onYouTubeIframeAPIReady() {
-            ytPlayer = new YT.Player('yt-player', {
-                height: '1', width: '1',
-                playerVars: { 'playsinline': 1, 'controls': 0 },
-                events: { 'onReady': onPlayerReady }
-            });
-        }
-        function onPlayerReady(event) { isYtReady = true; event.target.setVolume(50); }
-
-        // === 2. 初始化流程 ===
-        async function joinRoom() {
-            const nickInput = document.getElementById('nickname');
-            const roomInput = document.getElementById('roomId');
-            if (!nickInput.value || !roomInput.value) { alert("請輸入代號與房號"); return; }
-            myNickname = nickInput.value; roomId = roomInput.value;
-
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
-                localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 480, facingMode: "user" },
-                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-                });
-                
-                // 儲存攝影機軌道以便切換回
-                camVideoTrack = localStream.getVideoTracks()[0];
-
-                setupUI();
-                setupAudioGraph();
-                initSoundboard(); 
-                startCanvasLoop();
-                connectSignaling();
-            } catch (err) { alert("無法存取設備: " + err.message); }
-        }
-
-        function setupUI() {
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('app-screen').style.display = 'flex';
-            document.getElementById('header-info').textContent = `${roomId} | ${myNickname}`;
-            
-            addVideoCard('local', myNickname, true);
-            const v = document.getElementById('video-local');
-            v.srcObject = localStream; v.muted = true;
-        }
-
-        // === 3. 初始化音效板 UI (Updated for new CSS) ===
         function initSoundboard() {
             const tabContainer = document.getElementById('sb-tabs-container');
             const contentContainer = document.getElementById('sb-content-area');
@@ -719,13 +1275,11 @@
                 const btn = document.createElement('button');
                 btn.className = 'pad-btn';
                 if (category.includes("8-Bit")) btn.classList.add('retro-style');
-                // Icon + Label structure
                 const [icon, ...text] = sound.label.split(" ");
                 btn.innerHTML = `<span style="font-size:1.2rem;">${icon}</span><span>${text.join(" ")}</span>`;
                 
                 btn.onclick = () => {
                     playSynthSound(sound);
-                    // Visual feedback
                     btn.style.borderColor = "var(--accent-primary)";
                     setTimeout(() => btn.style.borderColor = "", 150);
                 };
@@ -733,7 +1287,6 @@
             });
         }
 
-        // === 4. 核心音效合成引擎 (Synth Engine) ===
         function playSynthSound(params) {
             if (!audioCtx) return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -826,414 +1379,123 @@
                 osc1.stop(t + params.dur); osc2.stop(t + params.dur);
             }
         }
-
-        // === 5. Audio Graph Setup ===
-        function setupAudioGraph() {
-            micSourceNode = audioCtx.createMediaStreamSource(localStream);
-            micGainNode = audioCtx.createGain(); 
-            soundboardGainNode = audioCtx.createGain(); soundboardGainNode.gain.value = 0.8;
-            bgmGainNode = audioCtx.createGain(); bgmGainNode.gain.value = 0.3;
-
-            recordDestNode = audioCtx.createMediaStreamDestination();
-            peerDestNode = audioCtx.createMediaStreamDestination();
-
-            micSourceNode.connect(micGainNode);
-            micGainNode.connect(peerDestNode);
-            micGainNode.connect(recordDestNode);
-
-            soundboardGainNode.connect(audioCtx.destination);
-            soundboardGainNode.connect(recordDestNode);
-            
-            bgmGainNode.connect(audioCtx.destination);
-            bgmGainNode.connect(recordDestNode);
-            bgmGainNode.connect(peerDestNode); 
-        }
-
-        function resumeAudio() { if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
-
-        // === 6. WebSocket ===
-        function connectSignaling() {
-            ws = new WebSocket(SIGNALING_URL);
-            ws.onopen = () => {
-                document.getElementById('connection-text').textContent = "Online";
-                document.getElementById('connection-dot').classList.add('active');
-                sendSignal({ type: 'join', roomId, nickname: myNickname });
-            };
-            ws.onmessage = (e) => handleSignalingData(JSON.parse(e.data));
-            ws.onclose = () => {
-                document.getElementById('connection-text').textContent = "Offline";
-                document.getElementById('connection-dot').classList.remove('active');
-            };
-        }
-
-        async function handleSignalingData(data) {
-            switch (data.type) {
-                case 'room-info':
-                    data.members.forEach(m => { if (m.id !== myId) createPeerConnection(m.id, m.nickname, true); });
-                    break;
-                case 'user-joined': console.log("User joined"); break;
-                case 'user-left': removePeer(data.id); break;
-                case 'yt-sync': handleYtSync(data); break;
-                case 'signal':
-                    const peerId = data.from;
-                    if (!peers[peerId]) await createPeerConnection(peerId, "Unknown", false);
-                    const pc = peers[peerId].conn;
-                    if (data.desc) {
-                        await pc.setRemoteDescription(new RTCSessionDescription(data.desc));
-                        if (data.desc.type === 'offer') {
-                            const answer = await pc.createAnswer();
-                            await pc.setLocalDescription(answer);
-                            sendSignal({ type: 'signal', to: peerId, desc: answer });
-                        }
-                    } else if (data.candidate) { try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e){} }
-                    break;
-                case 'welcome': myId = data.id; break;
-            }
-        }
-        function sendSignal(msg) { if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
-
-        // === 7. WebRTC ===
-        async function createPeerConnection(targetId, nickname, isInitiator) {
-            if (peers[targetId]) return;
-            const pc = new RTCPeerConnection(rtcConfig);
-            addVideoCard(targetId, nickname, false);
-
-            localStream.getVideoTracks().forEach(t => pc.addTrack(t, localStream));
-            peerDestNode.stream.getAudioTracks().forEach(t => pc.addTrack(t, peerDestNode.stream));
-
-            pc.ontrack = (event) => {
-                const stream = event.streams[0];
-                if (event.track.kind === 'video') {
-                    const v = document.getElementById(`video-${targetId}`);
-                    v.srcObject = stream;
-                } else {
-                    const src = audioCtx.createMediaStreamSource(stream);
-                    const gain = audioCtx.createGain();
-                    gain.connect(audioCtx.destination);
-                    gain.connect(recordDestNode);
-                    src.connect(gain);
-                    const aud = new Audio(); aud.srcObject = stream; aud.muted = true; aud.play().catch(e=>{});
-                }
-            };
-            pc.onicecandidate = (e) => { if(e.candidate) sendSignal({ type: 'signal', to: targetId, candidate: e.candidate }); };
-            pc.onconnectionstatechange = () => { if(pc.connectionState==='disconnected') removePeer(targetId); };
-
-            peers[targetId] = { conn: pc };
-            if (isInitiator) {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                sendSignal({ type: 'signal', to: targetId, desc: offer });
-            }
-        }
-        function removePeer(id) {
-            if (peers[id]) { peers[id].conn.close(); document.getElementById(`card-${id}`).remove(); delete peers[id]; }
-        }
-
-        // === 8. Video UI ===
-        function addVideoCard(id, name, isLocal) {
-            const grid = document.getElementById('video-grid');
-            const div = document.createElement('div');
-            div.className = 'video-card'; div.id = `card-${id}`;
-            // Simulating talking effect
-            if(!isLocal) div.classList.add('talking');
-            div.innerHTML = `<video id="video-${id}" autoplay playsinline ${isLocal?'muted':''}></video><div class="user-label">${name}</div>`;
-            grid.appendChild(div);
-        }
-        function toggleCam() {
-            if(camVideoTrack) {
-                isVideoEnabled = !isVideoEnabled;
-                camVideoTrack.enabled = isVideoEnabled;
-            }
-        }
         
-        // === 8.1 Screen Share ===
-        async function toggleScreenShare() {
-            if (isScreenSharing) {
-                stopScreenShare();
-                return;
-            }
-
-            try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                screenVideoTrack = stream.getVideoTracks()[0];
-
-                // 監聽使用者從瀏覽器原生 UI 停止分享
-                screenVideoTrack.onended = () => stopScreenShare();
-
-                // 替換 PeerConnection 中的軌道
-                Object.values(peers).forEach(p => {
-                    const sender = p.conn.getSenders().find(s => s.track && s.track.kind === 'video');
-                    if (sender) sender.replaceTrack(screenVideoTrack);
-                });
-
-                // 替換本地預覽
-                localStream.removeTrack(camVideoTrack);
-                localStream.addTrack(screenVideoTrack);
-                
-                isScreenSharing = true;
-                document.getElementById('btn-screen').classList.add('active');
-            } catch (err) {
-                console.error("螢幕分享失敗:", err);
-            }
-        }
-
-        function stopScreenShare() {
-            if (!isScreenSharing) return;
-
-            // 停止螢幕軌道
-            if (screenVideoTrack) {
-                screenVideoTrack.stop();
-                screenVideoTrack = null;
-            }
-
-            // 恢復攝影機軌道
-            const currentVideoTrack = localStream.getVideoTracks()[0];
-            if (currentVideoTrack) localStream.removeTrack(currentVideoTrack);
-            localStream.addTrack(camVideoTrack);
-
-            // 恢復 PeerConnection
-            Object.values(peers).forEach(p => {
-                const sender = p.conn.getSenders().find(s => s.track && s.track.kind === 'video');
-                if (sender) sender.replaceTrack(camVideoTrack);
-            });
-
-            isScreenSharing = false;
-            document.getElementById('btn-screen').classList.remove('active');
-        }
-
-        // === 9. Canvas Recording (God Mode - Chill Studio) ===
-        function startCanvasLoop() {
-            canvasInterval = setInterval(() => {
-                // 1. 繪製背景 (Chill Room)
-                if (bgImage.complete) {
-                    ctx.drawImage(bgImage, 0, 0, 1280, 720);
-                    // 疊加一層半透明遮罩，讓畫面不要太搶眼，凸顯人物
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-                    ctx.fillRect(0, 0, 1280, 720);
-                } else {
-                    ctx.fillStyle = '#18181b';
-                    ctx.fillRect(0, 0, 1280, 720);
-                }
-
-                // 2. 收集所有視訊來源
-                const videos = [];
-                const localVideo = document.getElementById('video-local');
-                if (localVideo && localVideo.readyState >= 2 && isVideoEnabled) {
-                    videos.push({ el: localVideo, name: myNickname });
-                }
-                
-                Object.keys(peers).forEach(id => {
-                    const v = document.getElementById(`video-${id}`);
-                    // 遠端需要確保有畫面
-                    if (v && v.readyState >= 2) {
-                        videos.push({ el: v, name: peers[id].nickname || "Guest" });
-                    }
-                });
-
-                if (videos.length === 0) {
-                    // 若無人開鏡頭，顯示等待畫面
-                    ctx.fillStyle = "white";
-                    ctx.font = "30px Arial";
-                    ctx.fillText("Waiting for camera...", 50, 80);
-                    return;
-                }
-                
-                // 3. 計算格狀佈局 (Grid Layout)
-                const count = videos.length;
-                let cols = 1, rows = 1;
-                if (count === 2) { cols = 2; rows = 1; }
-                else if (count > 2 && count <= 4) { cols = 2; rows = 2; }
-                else if (count > 4) { cols = 3; rows = 2; }
-
-                // 計算每個格子的尺寸與間距 (Padding)
-                const padding = 20; // 畫面間距
-                const totalW = 1280 - (padding * (cols + 1));
-                const totalH = 720 - (padding * (rows + 1));
-                const cellW = totalW / cols;
-                const cellH = totalH / rows;
-                
-                // 4. 繪製每個使用者
-                videos.forEach((item, i) => {
-                    const c = i % cols;
-                    const r = Math.floor(i / cols);
-                    
-                    // 計算座標 (加上間距偏移)
-                    const x = padding + (c * (cellW + padding));
-                    const y = padding + (r * (cellH + padding));
-                    
-                    ctx.save();
-                    
-                    // 圓角裁切 (Rounded Corners)
-                    roundedRect(ctx, x, y, cellW, cellH, 15);
-                    ctx.clip();
-
-                    try { 
-                        // 繪製視訊畫面 (模擬 object-fit: cover)
-                        // 簡單縮放至填滿格子
-                        const vW = item.el.videoWidth;
-                        const vH = item.el.videoHeight;
-                        if (vW && vH) {
-                            // 計算比例
-                            const scale = Math.max(cellW / vW, cellH / vH);
-                            const renderW = vW * scale;
-                            const renderH = vH * scale;
-                            const offsetX = (cellW - renderW) / 2;
-                            const offsetY = (cellH - renderH) / 2;
-                            ctx.drawImage(item.el, x + offsetX, y + offsetY, renderW, renderH);
-                        } else {
-                            ctx.fillStyle = "#222";
-                            ctx.fillRect(x, y, cellW, cellH);
-                        }
-                    } catch(e){}
-                    
-                    ctx.restore();
-
-                    // 繪製邊框
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-                    ctx.lineWidth = 4;
-                    roundedRect(ctx, x, y, cellW, cellH, 15);
-                    ctx.stroke();
-
-                    // 繪製名字標籤
-                    ctx.fillStyle = "rgba(0,0,0,0.6)";
-                    const nameW = ctx.measureText(item.name).width + 20;
-                    ctx.fillRect(x + 10, y + cellH - 40, nameW, 30);
-                    
-                    ctx.fillStyle = "white";
-                    ctx.font = "bold 16px Arial";
-                    ctx.fillText(item.name, x + 20, y + cellH - 19);
-                });
-            }, 33); // ~30 FPS
-        }
-
-        // 輔助函式：繪製圓角矩形路徑
-        function roundedRect(ctx, x, y, width, height, radius) {
-            ctx.beginPath();
-            ctx.moveTo(x + radius, y);
-            ctx.lineTo(x + width - radius, y);
-            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-            ctx.lineTo(x + width, y + height - radius);
-            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-            ctx.lineTo(x + radius, y + height);
-            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-            ctx.lineTo(x, y + radius);
-            ctx.quadraticCurveTo(x, y, x + radius, y);
-            ctx.closePath();
-        }
-
-        async function toggleRecording() {
-            const btn = document.getElementById('btn-record');
-            const timer = document.getElementById('rec-timer');
-            
-            if(!isRecording) {
-                // [修正] 確保 AudioContext 是活躍的，否則錄出來沒聲音或錄製失敗
-                if (audioCtx.state === 'suspended') await audioCtx.resume();
-
-                const stream = canvas.captureStream(30);
-                // [修正] 檢查音訊節點是否存在
-                if (recordDestNode && recordDestNode.stream) {
-                    recordDestNode.stream.getAudioTracks().forEach(t => stream.addTrack(t));
-                }
-                
-                // 擴充支援的格式清單，優先使用 MP4/H264
-                const types = [
-                    "video/mp4",
-                    "video/webm;codecs=h264",
-                    "video/webm;codecs=vp9",
-                    "video/webm;codecs=vp8",
-                    "video/webm"
-                ];
-                let mime = types.find(t => MediaRecorder.isTypeSupported(t)) || "video/webm";
-
-                try { 
-                    mediaRecorder = new MediaRecorder(stream, { mimeType: mime }); 
-                    
-                    // [修正] 監聽錯誤
-                    mediaRecorder.onerror = (event) => {
-                        console.error("Recorder Error:", event);
-                        alert("錄製發生錯誤: " + event.error.name);
-                    };
-                }
-                catch(e) { alert("錄影失敗: "+e); return; }
-
-                recordedChunks = [];
-                mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); };
-                mediaRecorder.onstop = saveFile;
-                
-                // [修正] 使用 1000ms 切片，確保資料定期寫入
-                mediaRecorder.start(1000);
-                
-                isRecording = true; 
-                btn.innerHTML = `<span class="rec-icon">■</span> STOP RECORDING`; 
-                btn.classList.add('active');
-                
-                recordingStartTime = Date.now();
-                recInterval = setInterval(() => {
-                    const diff = Date.now() - recordingStartTime;
-                    const h = Math.floor(diff / 3600000).toString().padStart(2,'0');
-                    const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2,'0');
-                    const s = Math.floor((diff % 60000) / 1000).toString().padStart(2,'0');
-                    timer.innerText = `${h}:${m}:${s}`;
-                }, 1000);
-            } else {
-                mediaRecorder.stop(); 
-                isRecording = false; 
-                btn.innerHTML = `<span class="rec-icon">●</span> START RECORDING`; 
-                btn.classList.remove('active');
-                clearInterval(recInterval);
-            }
-        }
-        function saveFile() {
-            // [修正] 確保有資料才存
-            if (recordedChunks.length === 0) {
-                alert("沒有錄製到任何資料");
-                return;
-            }
-
-            const mimeType = mediaRecorder.mimeType || 'video/webm';
-            const blob = new Blob(recordedChunks, { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            
-            // 動態偵測副檔名，避免 WebM 被存成 MP4 導致無法播放
-            const actualType = mimeType.toLowerCase();
-            const ext = actualType.includes('mp4') ? 'mp4' : 'webm';
-            
-            a.href = url; 
-            a.download = `OMNI-REC-${Date.now()}.${ext}`; 
-            a.textContent = `Download ${ext.toUpperCase()} File`; 
-            a.className = "download-link";
-            document.getElementById('download-area').innerHTML = '';
-            document.getElementById('download-area').appendChild(a);
-        }
-
-        // === 10. YouTube Logic ===
-        function loadYtFromInput() {
-            let url = document.getElementById('yt-url').value;
-            let id = url.length===11 ? url : (url.match(/v=([^&]+)/)?.[1] || "");
+        // YouTube Helpers
+        function loadYtFromInput() { 
+            let id = document.getElementById('yt-url').value;
             if(id) sendSignal({ type: 'yt-sync', action: 'load', videoId: id });
         }
-        function toggleYtState() {
-            if(!isYtReady) return;
-            const action = ytPlayer.getPlayerState()===1 ? 'pause' : 'play';
-            sendSignal({ type: 'yt-sync', action: action });
-        }
+        function toggleYtState() { if(isYtReady) sendSignal({ type: 'yt-sync', action: ytPlayer.getPlayerState()===1?'pause':'play' }); }
         function setYtVolume(v) { if(isYtReady) ytPlayer.setVolume(v); }
         function handleYtSync(d) {
             if(!isYtReady) return;
-            const btn = document.getElementById('yt-play-btn');
-            if(d.action==='load') { ytPlayer.loadVideoById(d.videoId); btn.innerText = "▶"; }
-            else if(d.action==='play') { ytPlayer.playVideo(); btn.innerText = "⏸"; }
-            else if(d.action==='pause') { ytPlayer.pauseVideo(); btn.innerText = "▶"; }
+            if(d.action==='load') ytPlayer.loadVideoById(d.videoId);
+            else if(d.action==='play') ytPlayer.playVideo();
+            else if(d.action==='pause') ytPlayer.pauseVideo();
+        }
+        function onYouTubeIframeAPIReady() {
+            ytPlayer = new YT.Player('yt-player', { height:'1', width:'1', events: { 'onReady': () => isYtReady=true } });
         }
         
+        // === Easy Bar BGM Logic (Procedural Jazz) ===
+        function startLoungeBGM() {
+            if (!isBgmPlaying) return;
+            
+            // Ensure audio context is running
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const t = audioCtx.currentTime;
+            const tempo = 3.0; // seconds per chord
+
+            // Simple Jazz Progressions: ii - V - I - VI
+            // Dm9: D F A C E
+            // G13: G B D F E
+            // Cmaj9: C E G B D
+            // A7alt: A C# G Bb F
+            const chords = [
+                [293.66, 349.23, 440.00, 523.25, 659.25], // Dm9
+                [196.00, 246.94, 293.66, 349.23, 659.25], // G13
+                [261.63, 329.63, 392.00, 493.88, 587.33], // Cmaj9
+                [220.00, 277.18, 392.00, 466.16, 698.46]  // A7alt
+            ];
+
+            // Randomly pick a chord
+            const currentChord = chords[Math.floor(Math.random() * chords.length)];
+
+            currentChord.forEach(freq => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const lfo = audioCtx.createOscillator();
+                const lfoGain = audioCtx.createGain();
+
+                // Electric Piano Tone (Triangle/Sine hybrid)
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+
+                // Tremolo Effect
+                lfo.frequency.value = 4; // 4Hz tremolo
+                lfoGain.gain.value = 0.3; // Depth
+                lfo.connect(lfoGain);
+                lfoGain.connect(gain.gain); // Modulate volume
+
+                // Envelope
+                gain.connect(bgmGainNode);
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.2, t + 0.1); // Attack
+                gain.gain.exponentialRampToValueAtTime(0.01, t + tempo); // Decay
+
+                osc.start(t);
+                lfo.start(t);
+                osc.stop(t + tempo + 0.5);
+                lfo.stop(t + tempo + 0.5);
+                
+                bgmOscillators.push(osc);
+                bgmOscillators.push(lfo);
+            });
+
+            // Schedule next chord
+            bgmLoopTimeout = setTimeout(startLoungeBGM, tempo * 1000);
+        }
+
+        function toggleBGM() {
+            // [Fix] Ensure AudioContext is running
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+            const btn = document.getElementById('bgm-toggle');
+            
+            if(!isBgmPlaying) {
+                isBgmPlaying = true; 
+                startLoungeBGM(); // Start the loop
+                btn.innerText="ON"; 
+                btn.style.color = "var(--accent-success)";
+            } else {
+                isBgmPlaying = false; 
+                if(bgmLoopTimeout) clearTimeout(bgmLoopTimeout); // Stop loop
+                bgmOscillators.forEach(o=> { try{o.stop()}catch(e){} }); 
+                bgmOscillators=[];
+                btn.innerText="OFF"; 
+                btn.style.color = "var(--text-main)";
+            }
+        }
+        
+        const bgmSlider = document.getElementById('bgm-volume');
+        if(bgmSlider) bgmSlider.oninput = e => { if(bgmGainNode) bgmGainNode.gain.value = e.target.value/100; };
+        
+        const sbSlider = document.getElementById('sb-volume');
+        if(sbSlider) sbSlider.oninput = e => { if(soundboardGainNode) soundboardGainNode.gain.value = e.target.value/100; };
+        
+        // === 12. Capture Tab Audio Fix ===
         async function captureTabAudio() {
             try {
+                // Ensure audio context is running before capture
+                if (audioCtx.state === 'suspended') await audioCtx.resume();
+
                 const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
                 const audioTrack = stream.getAudioTracks()[0];
-                if(!audioTrack) return alert("未選取音訊！");
+                if(!audioTrack) return alert("未選取音訊！請重新分享並勾選「分享分頁音訊」。");
                 
-                stream.getVideoTracks().forEach(t => t.stop());
+                // [Fix] Do NOT stop video track immediately, as it kills audio on some browsers (Chrome)
+                // Instead, just don't attach it to anything. It will show "Sharing" banner but that's required.
                 
                 if(tabAudioSource) tabAudioSource.disconnect();
                 tabAudioSource = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
@@ -1241,29 +1503,13 @@
                 
                 const btn = document.getElementById('btn-capture-tab');
                 btn.innerHTML = "<span>📡</span> 已擷取 (ACTIVE)"; btn.classList.add('active');
-                audioTrack.onended = () => { btn.innerHTML = "<span>📡</span> 擷取分頁音訊"; btn.classList.remove('active'); };
+                
+                audioTrack.onended = () => { 
+                    btn.innerHTML = "<span>📡</span> 擷取分頁音訊"; 
+                    btn.classList.remove('active'); 
+                };
             } catch(e) { console.log(e); }
         }
-
-        // === 11. BGM & Events ===
-        function toggleBGM() {
-            const btn = document.getElementById('bgm-toggle');
-            if(!isBgmPlaying) {
-                const osc = audioCtx.createOscillator(); osc.frequency.value = 55; // Low Drone
-                osc.connect(bgmGainNode); osc.start(); bgmOscillators.push(osc);
-                isBgmPlaying = true; btn.innerText="ON"; btn.style.color = "var(--accent-success)";
-            } else {
-                bgmOscillators.forEach(o=>o.stop()); bgmOscillators=[];
-                isBgmPlaying = false; btn.innerText="OFF"; btn.style.color = "var(--text-main)";
-            }
-        }
-        
-        // 安全綁定
-        const bgmSlider = document.getElementById('bgm-volume');
-        if(bgmSlider) bgmSlider.oninput = e => { if(bgmGainNode) bgmGainNode.gain.value = e.target.value/100; };
-        
-        const sbSlider = document.getElementById('sb-volume');
-        if(sbSlider) sbSlider.oninput = e => { if(soundboardGainNode) soundboardGainNode.gain.value = e.target.value/100; };
 
     </script>
 </body>
