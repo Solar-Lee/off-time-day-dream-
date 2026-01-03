@@ -579,11 +579,17 @@
         let mediaRecorder = null, recordedChunks = [];
         let isRecording = false, recordingStartTime = 0, recInterval = null;
         
-        // Canvas
+        // Canvas & Background
         const canvas = document.getElementById('mixer-canvas');
         const ctx = canvas.getContext('2d');
         let canvasInterval = null;
-
+        
+        // 載入 Chill 背景圖片 (虛擬攝影棚)
+        const bgImage = new Image();
+        // [關鍵修正] 設定 crossOrigin 避免 Canvas Tainted 無法錄製
+        bgImage.crossOrigin = "anonymous";
+        bgImage.src = "https://images.unsplash.com/photo-1593697821252-0c9137d9fc45?q=80&w=1280&auto=format&fit=crop"; 
+        
         // YouTube
         let ytPlayer, isYtReady = false, currentYtId = "";
 
@@ -995,59 +1001,167 @@
             document.getElementById('btn-screen').classList.remove('active');
         }
 
-        // === 9. Canvas Recording ===
+        // === 9. Canvas Recording (God Mode - Chill Studio) ===
         function startCanvasLoop() {
-            ctx.fillStyle = '#000';
             canvasInterval = setInterval(() => {
-                ctx.fillRect(0, 0, 1280, 720);
-                const videos = [document.getElementById('video-local')];
+                // 1. 繪製背景 (Chill Room)
+                if (bgImage.complete) {
+                    ctx.drawImage(bgImage, 0, 0, 1280, 720);
+                    // 疊加一層半透明遮罩，讓畫面不要太搶眼，凸顯人物
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+                    ctx.fillRect(0, 0, 1280, 720);
+                } else {
+                    ctx.fillStyle = '#18181b';
+                    ctx.fillRect(0, 0, 1280, 720);
+                }
+
+                // 2. 收集所有視訊來源
+                const videos = [];
+                const localVideo = document.getElementById('video-local');
+                if (localVideo && localVideo.readyState >= 2 && isVideoEnabled) {
+                    videos.push({ el: localVideo, name: myNickname });
+                }
+                
                 Object.keys(peers).forEach(id => {
                     const v = document.getElementById(`video-${id}`);
-                    if(v && v.readyState>=2) videos.push(v);
+                    // 遠端需要確保有畫面
+                    if (v && v.readyState >= 2) {
+                        videos.push({ el: v, name: peers[id].nickname || "Guest" });
+                    }
                 });
-                if(videos.length===0) return;
+
+                if (videos.length === 0) {
+                    // 若無人開鏡頭，顯示等待畫面
+                    ctx.fillStyle = "white";
+                    ctx.font = "30px Arial";
+                    ctx.fillText("Waiting for camera...", 50, 80);
+                    return;
+                }
                 
-                let cols=1, rows=1;
-                if(videos.length>1) { cols=2; rows=videos.length>2?2:1; if(videos.length>4){cols=3; rows=2;} }
-                const w = 1280/cols, h = 720/rows;
+                // 3. 計算格狀佈局 (Grid Layout)
+                const count = videos.length;
+                let cols = 1, rows = 1;
+                if (count === 2) { cols = 2; rows = 1; }
+                else if (count > 2 && count <= 4) { cols = 2; rows = 2; }
+                else if (count > 4) { cols = 3; rows = 2; }
+
+                // 計算每個格子的尺寸與間距 (Padding)
+                const padding = 20; // 畫面間距
+                const totalW = 1280 - (padding * (cols + 1));
+                const totalH = 720 - (padding * (rows + 1));
+                const cellW = totalW / cols;
+                const cellH = totalH / rows;
                 
-                videos.forEach((v, i) => {
-                    const c = i%cols, r = Math.floor(i/cols);
+                // 4. 繪製每個使用者
+                videos.forEach((item, i) => {
+                    const c = i % cols;
+                    const r = Math.floor(i / cols);
+                    
+                    // 計算座標 (加上間距偏移)
+                    const x = padding + (c * (cellW + padding));
+                    const y = padding + (r * (cellH + padding));
+                    
+                    ctx.save();
+                    
+                    // 圓角裁切 (Rounded Corners)
+                    roundedRect(ctx, x, y, cellW, cellH, 15);
+                    ctx.clip();
+
                     try { 
-                        // Draw Image
-                        ctx.drawImage(v, c*w, r*h, w, h); 
-                        // Draw Name Label
-                        ctx.fillStyle = "rgba(0,0,0,0.5)";
-                        ctx.fillRect(c*w + 10, r*h + h - 40, 120, 30);
-                        ctx.fillStyle = "white";
-                        ctx.font = "16px Arial";
-                        ctx.fillText("User " + (i+1), c*w + 20, r*h + h - 20);
-                        // Reset fill style for clearing
-                        ctx.fillStyle = "#000";
+                        // 繪製視訊畫面 (模擬 object-fit: cover)
+                        // 簡單縮放至填滿格子
+                        const vW = item.el.videoWidth;
+                        const vH = item.el.videoHeight;
+                        if (vW && vH) {
+                            // 計算比例
+                            const scale = Math.max(cellW / vW, cellH / vH);
+                            const renderW = vW * scale;
+                            const renderH = vH * scale;
+                            const offsetX = (cellW - renderW) / 2;
+                            const offsetY = (cellH - renderH) / 2;
+                            ctx.drawImage(item.el, x + offsetX, y + offsetY, renderW, renderH);
+                        } else {
+                            ctx.fillStyle = "#222";
+                            ctx.fillRect(x, y, cellW, cellH);
+                        }
                     } catch(e){}
-                    ctx.strokeStyle='#222'; ctx.lineWidth=4; ctx.strokeRect(c*w, r*h, w, h);
+                    
+                    ctx.restore();
+
+                    // 繪製邊框
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                    ctx.lineWidth = 4;
+                    roundedRect(ctx, x, y, cellW, cellH, 15);
+                    ctx.stroke();
+
+                    // 繪製名字標籤
+                    ctx.fillStyle = "rgba(0,0,0,0.6)";
+                    const nameW = ctx.measureText(item.name).width + 20;
+                    ctx.fillRect(x + 10, y + cellH - 40, nameW, 30);
+                    
+                    ctx.fillStyle = "white";
+                    ctx.font = "bold 16px Arial";
+                    ctx.fillText(item.name, x + 20, y + cellH - 19);
                 });
-            }, 33);
+            }, 33); // ~30 FPS
         }
 
-        function toggleRecording() {
+        // 輔助函式：繪製圓角矩形路徑
+        function roundedRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        async function toggleRecording() {
             const btn = document.getElementById('btn-record');
             const timer = document.getElementById('rec-timer');
             
             if(!isRecording) {
-                const stream = canvas.captureStream(30);
-                recordDestNode.stream.getAudioTracks().forEach(t => stream.addTrack(t));
-                
-                let mime = 'video/webm;codecs=vp8,opus';
-                if(!MediaRecorder.isTypeSupported(mime)) mime = 'video/mp4';
+                // [修正] 確保 AudioContext 是活躍的，否則錄出來沒聲音或錄製失敗
+                if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-                try { mediaRecorder = new MediaRecorder(stream, { mimeType: mime }); }
+                const stream = canvas.captureStream(30);
+                // [修正] 檢查音訊節點是否存在
+                if (recordDestNode && recordDestNode.stream) {
+                    recordDestNode.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+                }
+                
+                // 擴充支援的格式清單，優先使用 MP4/H264
+                const types = [
+                    "video/mp4",
+                    "video/webm;codecs=h264",
+                    "video/webm;codecs=vp9",
+                    "video/webm;codecs=vp8",
+                    "video/webm"
+                ];
+                let mime = types.find(t => MediaRecorder.isTypeSupported(t)) || "video/webm";
+
+                try { 
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: mime }); 
+                    
+                    // [修正] 監聽錯誤
+                    mediaRecorder.onerror = (event) => {
+                        console.error("Recorder Error:", event);
+                        alert("錄製發生錯誤: " + event.error.name);
+                    };
+                }
                 catch(e) { alert("錄影失敗: "+e); return; }
 
                 recordedChunks = [];
                 mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); };
                 mediaRecorder.onstop = saveFile;
-                mediaRecorder.start();
+                
+                // [修正] 使用 1000ms 切片，確保資料定期寫入
+                mediaRecorder.start(1000);
                 
                 isRecording = true; 
                 btn.innerHTML = `<span class="rec-icon">■</span> STOP RECORDING`; 
@@ -1070,10 +1184,24 @@
             }
         }
         function saveFile() {
-            const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+            // [修正] 確保有資料才存
+            if (recordedChunks.length === 0) {
+                alert("沒有錄製到任何資料");
+                return;
+            }
+
+            const mimeType = mediaRecorder.mimeType || 'video/webm';
+            const blob = new Blob(recordedChunks, { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = `OMNI-REC-${Date.now()}.mp4`; a.textContent = "Download File"; 
+            
+            // 動態偵測副檔名，避免 WebM 被存成 MP4 導致無法播放
+            const actualType = mimeType.toLowerCase();
+            const ext = actualType.includes('mp4') ? 'mp4' : 'webm';
+            
+            a.href = url; 
+            a.download = `OMNI-REC-${Date.now()}.${ext}`; 
+            a.textContent = `Download ${ext.toUpperCase()} File`; 
             a.className = "download-link";
             document.getElementById('download-area').innerHTML = '';
             document.getElementById('download-area').appendChild(a);
