@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全維度多人錄音室 (穩定音訊版)</title>
+    <title>全維度多人視訊錄音室 (百大音效旗艦版)</title>
     <style>
         :root {
-            --bg-color: #1a1a1a;
-            --panel-color: #2d2d2d;
+            --bg-color: #121212;
+            --panel-color: #1e1e1e;
             --text-color: #e0e0e0;
             --accent-color: #00d2ff;
             --danger-color: #ff4757;
             --success-color: #2ed573;
             --warn-color: #ff9f43;
+            --yt-color: #ff0000;
+            --retro-color: #f1c40f;
+            --tab-active-bg: #333;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -24,524 +27,795 @@
             height: 100vh;
             overflow: hidden;
         }
-        /* 登入頁面 */
+        
+        /* 登入畫面 */
         #login-screen {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100%;
-            z-index: 10;
+            z-index: 100;
+            background: var(--bg-color);
+            position: fixed;
+            width: 100%;
         }
         .card {
             background: var(--panel-color);
             padding: 2rem;
             border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
             text-align: center;
-            width: 300px;
+            width: 320px;
         }
         input {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             margin: 10px 0;
-            border-radius: 4px;
+            border-radius: 6px;
             border: 1px solid #444;
-            background: #333;
+            background: #2a2a2a;
             color: white;
             box-sizing: border-box;
         }
         button {
-            padding: 10px 20px;
-            border-radius: 4px;
+            padding: 12px 20px;
+            border-radius: 6px;
             border: none;
             cursor: pointer;
             font-weight: bold;
             transition: 0.2s;
+            font-size: 1rem;
         }
-        .btn-primary { background: var(--accent-color); color: #000; }
+        .btn-primary { background: var(--accent-color); color: #000; width: 100%; }
         .btn-primary:hover { background: #33e0ff; }
-        .btn-danger { background: var(--danger-color); color: white; }
-        .btn-fix { 
-            background: var(--warn-color); 
-            color: #000; 
-            font-size: 0.8rem; 
-            padding: 5px 10px;
-            margin-left: 10px;
-            border-radius: 20px;
-            display: none; /* 預設隱藏 */
-        }
-        .btn-record { background: var(--danger-color); color: white; width: 100%; margin-top: 10px; }
         
-        /* 主介面 */
+        /* 主介面佈局 */
         #app-screen {
-            display: none; /* 預設隱藏 */
+            display: none;
             flex: 1;
             flex-direction: column;
-            padding: 20px;
-            gap: 20px;
+            height: 100%;
         }
+        
+        /* 頂部導航 */
         header {
+            background: var(--panel-color);
+            padding: 10px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #444;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            z-index: 10;
         }
-        
-        /* 佈局 */
-        .main-container {
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #333;
+            color: #888;
+        }
+        .status-badge.connected { color: var(--success-color); background: rgba(46, 213, 115, 0.1); }
+        .btn-mini {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            background: #444;
+            color: #fff;
+            margin-left: 10px;
+        }
+
+        /* 內容區：左右分割 */
+        .content-area {
             display: flex;
             flex: 1;
-            gap: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 左側：視訊網格區 */
+        .video-stage {
+            flex: 2;
+            background: #000;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
             overflow: hidden;
         }
         
-        /* 成員列表 */
-        .member-panel {
-            flex: 1;
-            background: var(--panel-color);
-            border-radius: 8px;
-            padding: 15px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
+        /* 視訊網格佈局 (CSS Grid) */
+        #video-grid {
+            display: grid;
             gap: 10px;
+            width: 100%;
+            height: 100%;
+            max-width: 1280px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-auto-rows: 1fr;
         }
-        .member-card {
-            background: #3a3a3a;
-            padding: 10px;
-            border-radius: 6px;
+
+        .video-card {
+            background: #222;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            border: 2px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .video-card video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .video-card .overlay-name {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            z-index: 2;
+        }
+        .video-card.talking {
+            border-color: var(--success-color);
+        }
+
+        /* 隱藏的 Canvas (用於混流錄製) */
+        #mixer-canvas { display: none; }
+        
+        /* YouTube 隱藏播放器 */
+        #yt-player-container {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 右側：控制面板 */
+        .sidebar {
+            flex: 1;
+            min-width: 340px; /* 加寬以容納音效板 */
+            max-width: 400px;
+            background: var(--panel-color);
+            border-left: 1px solid #333;
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            border-left: 4px solid var(--accent-color);
-            transition: border-color 0.3s;
+            overflow-y: auto;
         }
-        .member-header {
+        
+        .panel-section {
+            padding: 15px;
+            border-bottom: 1px solid #333;
+        }
+        .panel-title {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
             display: flex;
             justify-content: space-between;
-            font-weight: bold;
-        }
-        .status-dot {
-            height: 8px;
-            width: 8px;
-            background-color: #777;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-        }
-        .connected { background-color: var(--success-color); }
-        .unstable { background-color: var(--warn-color); }
-        .disconnected { background-color: var(--danger-color); }
-        
-        .controls-row {
-            display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 0.8rem;
         }
-        input[type=range] { flex: 1; cursor: pointer; }
 
-        /* 音效面板 & 錄音 */
-        .tools-panel {
-            flex: 1;
+        /* === 音效板樣式 (升級版) === */
+        .soundboard-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            overflow-y: auto;
+            gap: 10px;
+            height: 400px; /* 固定高度讓內容捲動 */
         }
-        .soundboard {
-            background: var(--panel-color);
-            padding: 15px;
-            border-radius: 8px;
+        
+        /* 分類 Tabs */
+        .sb-tabs {
+            display: flex;
+            gap: 5px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #333;
         }
-        /* 新增：BGM 面板樣式 */
-        .bgm-panel {
-            background: #252525;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #444;
+        .sb-tab {
+            background: transparent;
+            border: none;
+            color: #888;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            border-radius: 4px;
         }
-        .sb-grid {
+        .sb-tab.active {
+            background: var(--accent-color);
+            color: #000;
+            font-weight: bold;
+        }
+        .sb-tab:hover:not(.active) {
+            background: #333;
+            color: #fff;
+        }
+
+        /* 音效按鈕網格 */
+        .sb-content {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 10px;
+            gap: 8px;
+            overflow-y: auto;
+            padding-right: 5px;
         }
         .sb-btn {
-            background: #444;
-            color: #fff;
-            padding: 15px;
-            font-size: 0.9rem;
+            background: #333;
+            color: #ddd;
+            padding: 10px 5px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            border: 1px solid #444;
+            transition: all 0.1s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        .sb-btn:active { background: var(--accent-color); color: #000; transform: scale(0.95); }
+        .sb-btn:hover { background: #444; border-color: #666; }
+        .sb-btn:active { 
+            background: var(--accent-color); 
+            color: #000; 
+            transform: scale(0.95); 
+            border-color: var(--accent-color);
+        }
         
-        .recorder-panel {
-            background: var(--panel-color);
+        /* 錄音控制 */
+        .record-box {
+            background: rgba(255, 71, 87, 0.1);
             padding: 15px;
             border-radius: 8px;
             text-align: center;
+            border: 1px solid var(--danger-color);
         }
-        .rec-status {
-            font-size: 1.5rem;
+        .timer-display {
+            font-size: 2rem;
             font-family: monospace;
             color: var(--danger-color);
             margin: 10px 0;
+            font-weight: bold;
         }
-        .toggle-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: #333;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            width: fit-content;
-            margin-bottom: 10px;
+        .btn-record {
+            background: var(--danger-color);
+            color: white;
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1rem;
         }
-        .toggle-btn {
-            background: #444;
-            border: 1px solid #555;
-            padding: 5px 15px;
-            color: #aaa;
-            font-size: 0.8rem;
+        .btn-record.recording { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        
+        /* YouTube 控制區 */
+        .yt-control-row { display: flex; gap: 5px; margin-top: 5px; }
+        .yt-input {
+            background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 6px;
+            font-size: 0.8rem; border-radius: 4px; width: 100%;
         }
-        .toggle-btn.active {
-            background: var(--success-color);
-            color: #000;
-            border-color: var(--success-color);
-            box-shadow: 0 0 10px rgba(46, 213, 115, 0.3);
+        .btn-yt {
+            background: #333; color: #fff; border: none; padding: 6px 12px;
+            border-radius: 4px; cursor: pointer; font-size: 0.8rem;
+        }
+        .btn-yt:hover { background: var(--yt-color); }
+        .btn-yt.active { background: var(--yt-color); }
+        
+        .btn-capture {
+            background: #333; color: var(--yt-color); border: 1px solid var(--yt-color);
+            width: 100%; margin-top: 8px; padding: 8px; border-radius: 4px;
+            cursor: pointer; font-size: 0.8rem;
+        }
+        .btn-capture:hover { background: var(--yt-color); color: white; }
+        .btn-capture.capturing { background: var(--yt-color); color: white; animation: pulse 2s infinite; }
+
+        /* 切換開關 */
+        .toggle-row {
+            display: flex; gap: 5px; background: #333; padding: 4px;
+            border-radius: 20px; margin-bottom: 10px;
+        }
+        .toggle-row label {
+            flex: 1; text-align: center; padding: 6px; font-size: 0.8rem;
+            cursor: pointer; border-radius: 16px; transition: 0.2s;
+        }
+        .toggle-row input { display: none; }
+        .toggle-row input:checked + span {
+            background: var(--text-color); color: #000; display: block;
+            border-radius: 16px; font-weight: bold;
         }
 
-        /* 提示 */
-        .warning {
-            color: var(--warn-color);
-            font-size: 0.8rem;
-            margin-top: 5px;
+        /* 手機 RWD */
+        @media (max-width: 768px) {
+            .content-area { flex-direction: column; }
+            .video-stage { flex: 1; min-height: 40vh; }
+            .sidebar { flex: 1; max-width: 100%; min-width: 0; }
+            #video-grid { grid-template-columns: repeat(2, 1fr); }
         }
-        
-        /* 隱藏的 Audio 元素 */
-        audio { display: none; }
     </style>
+    <!-- YouTube API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
 <body>
 
-    <!-- 登入畫面 -->
+    <!-- Canvas 混流引擎 -->
+    <canvas id="mixer-canvas" width="1280" height="720"></canvas>
+    <div id="yt-player-container"><div id="yt-player"></div></div>
+
+    <!-- 登入頁 -->
     <div id="login-screen">
         <div class="card">
-            <h2>進入意識錄音室</h2>
-            <input type="text" id="nickname" placeholder="輸入你的代號 (Nickname)" maxlength="10">
-            <input type="text" id="roomId" placeholder="房號 (Room ID)" value="room1">
-            <button class="btn-primary" onclick="joinRoom()">建立 / 加入房間</button>
-            <div class="warning">⚠️ 建議配戴耳機以避免回授 (Echo)</div>
-            <div id="debug-msg" style="margin-top:10px; font-size: 0.7rem; color: #888;"></div>
+            <h2 style="margin-top:0">全維度視訊錄音室</h2>
+            <p style="font-size:0.8rem; color:#888;">Video + Audio + 100+ SFX</p>
+            <input type="text" id="nickname" placeholder="你的代號" maxlength="10">
+            <input type="text" id="roomId" placeholder="房號" value="room1">
+            <button class="btn-primary" onclick="joinRoom()">開啟鏡頭並加入</button>
+            <div style="margin-top:15px; font-size:0.8rem; color:var(--warn-color);">
+                ⚠️ 請務必配戴耳機
+            </div>
         </div>
     </div>
 
-    <!-- 主程式畫面 -->
+    <!-- 主應用 -->
     <div id="app-screen">
         <header>
-            <div>
-                <span id="display-room" style="font-weight:bold; color:var(--accent-color)">Room: ???</span>
-                <span style="margin: 0 10px">|</span>
-                <span id="display-nick">Me: ???</span>
-                <button id="btn-audio-fix" class="btn-fix" onclick="resumeAudioContext()">🔊 沒聲音？點我修復</button>
+            <div style="display:flex; align-items:center;">
+                <span id="header-info" style="font-weight:bold;">Room: ???</span>
+                <span id="connection-badge" class="status-badge" style="margin-left:10px;">Connecting...</span>
             </div>
-            <div id="connection-status" style="font-size:0.8rem; color:#888;">尚未連線</div>
+            <div>
+                <button class="btn-mini" onclick="toggleCam()">📷 開/關鏡頭</button>
+                <button class="btn-mini" onclick="resumeAudio()">🔊 喚醒音效引擎</button>
+            </div>
         </header>
 
-        <div class="main-container">
-            <!-- 左側：成員列表 -->
-            <div class="member-panel" id="member-list">
-                <!-- 動態生成的成員卡片 -->
+        <div class="content-area">
+            <!-- 左側：視訊牆 -->
+            <div class="video-stage">
+                <div id="video-grid"></div>
             </div>
 
-            <!-- 右側：工具 (音效 + 錄音) -->
-            <div class="tools-panel">
+            <!-- 右側：控制台 -->
+            <div class="sidebar">
                 
-                <!-- BGM 面板 (新增功能) -->
-                <div class="bgm-panel">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h3 style="margin:0; font-size:1rem; color:#aaa;">Background Music</h3>
-                        <button id="bgm-toggle" class="toggle-btn" onclick="toggleBGM()">OFF</button>
-                    </div>
-                    <div style="font-size:0.8rem; color:#666; margin-bottom:10px;">
-                        模式: <span style="color:var(--accent-color)">賽博龐克氛圍 (Cyberpunk Drone)</span>
-                    </div>
-                    <div class="controls-row">
-                        <span>BGM 音量</span>
-                        <input type="range" id="bgm-volume" min="0" max="100" value="30">
+                <!-- 錄製控制 -->
+                <div class="panel-section">
+                    <div class="panel-title">Master Record</div>
+                    <div class="record-box">
+                        <div id="rec-timer" class="timer-display">00:00</div>
+                        <button id="btn-record" class="btn-record" onclick="toggleRecording()">● 開始錄影</button>
+                        <div id="download-area"></div>
                     </div>
                 </div>
 
-                <!-- 音效板 -->
-                <div class="soundboard">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3>Soundboard</h3>
-                        <div class="toggle-group">
-                            <label><input type="radio" name="sb-mode" value="local" checked> 私密試聽</label>
-                            <label><input type="radio" name="sb-mode" value="broadcast"> 廣播全場</label>
+                <!-- 音效板 (旗艦升級版) -->
+                <div class="panel-section" style="flex:1; display:flex; flex-direction:column;">
+                    <div class="panel-title">
+                        Soundboard (Synth)
+                        <div class="toggle-row" style="margin-bottom:0; width:140px;">
+                            <label><input type="radio" name="sb-mode" value="local" checked><span>🎧 試聽</span></label>
+                            <label><input type="radio" name="sb-mode" value="broadcast"><span>📡 廣播</span></label>
                         </div>
                     </div>
-                    <div>
-                        <label>音效音量: <span id="sb-vol-val">80%</span></label>
-                        <input type="range" id="sb-volume" min="0" max="150" value="80">
+                    
+                    <!-- 音效分類 Tabs -->
+                    <div class="sb-tabs" id="sb-tabs-container">
+                        <!-- 由 JS 動態生成 -->
                     </div>
-                    <div class="sb-grid">
-                        <button class="sb-btn" onclick="playEffect('applause')">👏 掌聲</button>
-                        <button class="sb-btn" onclick="playEffect('laugh')">😂 笑聲</button>
-                        <button class="sb-btn" onclick="playEffect('drum')">🥁 鼓聲</button>
-                        <button class="sb-btn" onclick="playEffect('beep')">🤖 Beep</button>
-                        <button class="sb-btn" onclick="playEffect('boom')">💥 爆炸</button>
-                        <button class="sb-btn" onclick="playEffect('whoosh')">💨 咻~</button>
+
+                    <!-- 音效按鈕區 -->
+                    <div class="sb-content" id="sb-content-area">
+                        <!-- 由 JS 動態生成 -->
+                    </div>
+
+                    <div style="margin-top:10px; display:flex; align-items:center; gap:5px;">
+                         <span style="font-size:0.8rem;">Vol:</span>
+                         <input type="range" id="sb-volume" min="0" max="150" value="80" style="flex:1;">
                     </div>
                 </div>
 
-                <!-- 錄音區 -->
-                <div class="recorder-panel">
-                    <h3>混音錄製</h3>
-                    <div style="font-size: 0.8rem; color:#aaa;">錄製範圍：你的麥克風 + 隊友聲音 + 音效 + BGM</div>
-                    <div id="rec-timer" class="rec-status">00:00</div>
-                    <button id="btn-record-toggle" class="btn-record" onclick="toggleRecording()">開始錄音</button>
-                    <div id="download-area" style="margin-top:10px;"></div>
+                <!-- Drone BGM (補回) -->
+                <div class="panel-section">
+                    <div style="display:flex; justify-content:space-between;">
+                        <div class="panel-title">Drone BGM</div>
+                        <button id="bgm-toggle" class="btn-mini" style="margin:0" onclick="toggleBGM()">OFF</button>
+                    </div>
+                    <input type="range" id="bgm-volume" min="0" max="100" value="30" style="margin-top:5px;">
                 </div>
+
+                <!-- YouTube & BGM -->
+                <div class="panel-section">
+                    <div class="panel-title" style="color:var(--yt-color);">YouTube Sync</div>
+                    <input type="text" id="yt-url" class="yt-input" placeholder="YouTube ID or URL">
+                    <div class="yt-control-row">
+                        <button class="btn-yt" onclick="loadYtFromInput()">Load</button>
+                        <button id="yt-play-btn" class="btn-yt" onclick="toggleYtState()">Play</button>
+                    </div>
+                    <button id="btn-capture-tab" class="btn-capture" onclick="captureTabAudio()">📡 抓取分頁聲音 (錄製用)</button>
+                    <div style="margin-top:5px; display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:0.8rem;">Vol:</span>
+                        <input type="range" id="yt-volume" min="0" max="100" value="50" oninput="setYtVolume(this.value)">
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
 
-    <!-- 腳本邏輯 -->
+    <!-- 腳本 -->
     <script>
-        // ================= 組態與全域變數 =================
+        // === 全域變數 ===
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host; 
         const SIGNALING_URL = `${protocol}//${host}`;
-        
-        document.getElementById('debug-msg').innerText = `連線目標: ${SIGNALING_URL}`;
-        console.log("WebSocket URL:", SIGNALING_URL);
 
         let ws;
-        let myId = null;
-        let myNickname = "";
-        let roomId = "";
+        let myId = null, myNickname = "", roomId = "";
         
-        // Web Audio Context
+        // Audio
         let audioCtx;
-        let micSourceNode;      
-        let micGainNode;        
-        let soundboardGainNode; 
-        
-        let bgmOscillators = []; 
-        let bgmGainNode;         
+        let micSourceNode, micGainNode, soundboardGainNode, bgmGainNode;
+        let recordDestNode, peerDestNode, tabAudioSource;
+        let bgmOscillators = [];
         let isBgmPlaying = false;
 
-        let recordDestNode;     
-        let peerDestNode;       
-        
-        const peers = {}; 
+        // Video & Record
+        const peers = {};
         let localStream = null;
-        let mediaRecorder = null;
-        let recordedChunks = [];
-        let isRecording = false;
-        let recordingStartTime = 0;
-        let recordInterval = null;
-        let recordingMimeType = ""; 
+        let isVideoEnabled = true;
+        let mediaRecorder = null, recordedChunks = [];
+        let isRecording = false, recordingStartTime = 0, recInterval = null;
+        
+        // Canvas
+        const canvas = document.getElementById('mixer-canvas');
+        const ctx = canvas.getContext('2d');
+        let canvasInterval = null;
 
-        const sfxConfig = {
-            'applause': { type: 'noise', duration: 1.5, decay: true }, 
-            'laugh': { type: 'sawtooth', freq: [400, 600, 400, 600], duration: 0.5 },
-            'drum': { type: 'sine', freq: 100, endFreq: 50, duration: 0.1 },
-            'beep': { type: 'square', freq: 880, duration: 0.1 },
-            'boom': { type: 'sawtooth', freq: 100, endFreq: 10, duration: 0.8 },
-            'whoosh': { type: 'noise', duration: 0.5, fade: true }
-        };
+        // YouTube
+        let ytPlayer, isYtReady = false, currentYtId = "";
 
-        const rtcConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        // === 1. 音效庫定義 (100+ Sounds) ===
+        // 我們使用參數化的方式定義音效，不使用外部檔案
+        const soundLibrary = {
+            "Reactions (反應)": [
+                { id: "applause", label: "👏 掌聲", type: "noise", dur: 2, env: "fade" },
+                { id: "laugh_chip", label: "😂 花栗鼠笑", type: "seq", notes: [800, 600, 900, 700, 800], speed: 0.08, wave: "sawtooth" },
+                { id: "gasp", label: "😱 倒抽氣", type: "slide", start: 300, end: 800, dur: 0.3, wave: "sine" },
+                { id: "cheer", label: "🎉 歡呼", type: "noise", dur: 3, env: "swell" },
+                { id: "boo", label: "👎 噓聲", type: "tone", freq: 100, dur: 1.5, wave: "sawtooth" },
+                { id: "wow", label: "😮 哇!", type: "slide", start: 200, end: 400, dur: 0.5, wave: "triangle" },
+                { id: "awww", label: "🥺 Awww", type: "slide", start: 600, end: 400, dur: 0.8, wave: "sine" },
+                { id: "scream", label: "🙀 尖叫", type: "slide", start: 800, end: 1200, dur: 0.5, wave: "sawtooth" },
+                { id: "cry", label: "😭 哭哭", type: "seq", notes: [600, 500, 580, 480], speed: 0.2, wave: "triangle" },
+                { id: "whistle", label: "😚 口哨", type: "slide", start: 1000, end: 1500, dur: 0.3, wave: "sine" }
+            ],
+            "Broadcasting (節目)": [
+                { id: "news_intro", label: "📰 新聞片頭", type: "seq", notes: [523, 659, 783, 1046], speed: 0.1, wave: "square" },
+                { id: "censored", label: "🤬 消音嗶", type: "tone", freq: 1000, dur: 0.5, wave: "sine" },
+                { id: "airhorn", label: "📯 空氣喇叭", type: "complex", freq: 400, dur: 0.8 },
+                { id: "correct", label: "⭕ 正確", type: "seq", notes: [600, 800], speed: 0.1, wave: "sine" },
+                { id: "wrong", label: "❌ 錯誤", type: "tone", freq: 150, dur: 0.4, wave: "sawtooth" },
+                { id: "suspense", label: "😰 懸疑", type: "tone", freq: 50, dur: 3, wave: "sawtooth" },
+                { id: "drumroll", label: "🥁 鼓聲", type: "noise", dur: 1.5, env: "flat" },
+                { id: "rimshot", label: "🤡 諧音梗", type: "seq", notes: [200, 200, 600], speed: 0.05, wave: "square" },
+                { id: "intro_beat", label: "🎵 動感開場", type: "seq", notes: [100, 0, 100, 0, 200], speed: 0.2, wave: "square" },
+                { id: "level_up", label: "🆙 升級", type: "seq", notes: [440, 554, 659, 880], speed: 0.1, wave: "triangle" }
+            ],
+            "Retro Game (復古)": [
+                { id: "coin", label: "🪙 金幣", type: "seq", notes: [987, 1318], speed: 0.08, wave: "square" },
+                { id: "jump", label: "🦘 跳躍", type: "slide", start: 150, end: 600, dur: 0.2, wave: "square" },
+                { id: "powerup", label: "🍄 變大", type: "slide", start: 440, end: 880, dur: 0.5, wave: "sawtooth" },
+                { id: "laser", label: "🔫 雷射", type: "slide", start: 880, end: 110, dur: 0.15, wave: "sawtooth" },
+                { id: "hit", label: "🥊 被打", type: "noise", dur: 0.1, env: "fade" },
+                { id: "die", label: "💀 死亡", type: "slide", start: 400, end: 50, dur: 0.8, wave: "sawtooth" },
+                { id: "pause", label: "⏸️ 暫停", type: "seq", notes: [600, 0, 600], speed: 0.1, wave: "triangle" },
+                { id: "gameover", label: "🏁 結束", type: "seq", notes: [600, 500, 400, 300], speed: 0.3, wave: "square" },
+                { id: "block", label: "🧱 撞頭", type: "tone", freq: 100, dur: 0.05, wave: "square" },
+                { id: "fireball", label: "🔥 火球", type: "noise", dur: 0.3, env: "fade" }
+            ],
+            "UI & System (介面)": [
+                { id: "click", label: "🖱️ 點擊", type: "tone", freq: 800, dur: 0.05, wave: "sine" },
+                { id: "popup", label: "💬 彈窗", type: "tone", freq: 1200, dur: 0.1, wave: "sine" },
+                { id: "notify", label: "🔔 通知", type: "seq", notes: [800, 1200], speed: 0.1, wave: "sine" },
+                { id: "error", label: "⚠️ 錯誤", type: "tone", freq: 150, dur: 0.2, wave: "sawtooth" },
+                { id: "success", label: "✅ 成功", type: "seq", notes: [800, 1000], speed: 0.1, wave: "sine" },
+                { id: "delete", label: "🗑️ 刪除", type: "slide", start: 300, end: 50, dur: 0.2, wave: "noise" },
+                { id: "typing", label: "⌨️ 打字", type: "noise", dur: 0.05, env: "fade" },
+                { id: "camera", label: "📸 快門", type: "noise", dur: 0.1, env: "fade" },
+                { id: "switch", label: "🔘 開關", type: "tone", freq: 600, dur: 0.05, wave: "square" },
+                { id: "loading", label: "⏳ 載入", type: "seq", notes: [600, 800, 1000], speed: 0.2, wave: "sine" }
+            ],
+            "Sci-Fi (科幻)": [
+                { id: "teleport", label: "🌌 傳送", type: "slide", start: 200, end: 2000, dur: 1.5, wave: "sine" },
+                { id: "scanner", label: "📡 掃描", type: "wobble", freq: 800, dur: 2, speed: 10 },
+                { id: "ufo", label: "🛸 飛碟", type: "wobble", freq: 1200, dur: 3, speed: 5 },
+                { id: "robot", label: "🤖 機器人", type: "seq", notes: [200, 250, 200, 300], speed: 0.1, wave: "square" },
+                { id: "energy", label: "⚡ 充能", type: "slide", start: 100, end: 1000, dur: 2, wave: "sawtooth" },
+                { id: "alarm_sf", label: "🚨 警報", type: "wobble", freq: 880, dur: 2, speed: 2 },
+                { id: "portal", label: "🌀 傳送門", type: "noise", dur: 2, env: "swell" },
+                { id: "laser_gun", label: "🔫 光線槍", type: "slide", start: 1500, end: 200, dur: 0.2, wave: "square" },
+                { id: "shield", label: "🛡️ 護盾", type: "tone", freq: 200, dur: 1, wave: "sine" },
+                { id: "computer", label: "💻 運算", type: "seq", notes: [1000, 1200, 800, 1500], speed: 0.05, wave: "square" }
+            ],
+            "Ambience (環境)": [
+                { id: "rain", label: "🌧️ 下雨", type: "noise", dur: 5, env: "flat" },
+                { id: "wind", label: "💨 風聲", type: "noise", dur: 5, env: "swell" },
+                { id: "white_noise", label: "📺 白噪", type: "noise", dur: 5, env: "flat" },
+                { id: "heartbeat", label: "💓 心跳", type: "seq", notes: [50, 0, 50], speed: 0.3, wave: "sine" },
+                { id: "drone_low", label: "🔉 低頻", type: "tone", freq: 60, dur: 5, wave: "sine" },
+                { id: "drone_high", label: "🔊 高頻", type: "tone", freq: 8000, dur: 5, wave: "sine" },
+                { id: "static", label: "📻 雜訊", type: "noise", dur: 1, env: "fade" },
+                { id: "thunder", label: "⚡ 雷聲", type: "noise", dur: 1.5, env: "fade" },
+                { id: "steps", label: "👣 腳步", type: "noise", dur: 0.1, env: "fade" },
+                { id: "fire", label: "🔥 營火", type: "noise", dur: 5, env: "crack" }
+            ],
+            "Horror (恐怖)": [
+                { id: "piano_hit", label: "🎹 驚悚", type: "complex", freq: 50, dur: 3 },
+                { id: "screech", label: "🎻 尖銳", type: "slide", start: 2000, end: 1800, dur: 1, wave: "sawtooth" },
+                { id: "ghost", label: "👻 鬼魂", type: "wobble", freq: 300, dur: 3, speed: 0.5 },
+                { id: "jumpscare", label: "🧛 嚇人", type: "noise", dur: 0.5, env: "fade" },
+                { id: "breath", label: "😨 呼吸", type: "noise", dur: 1, env: "swell" },
+                { id: "creak", label: "🚪 門聲", type: "slide", start: 100, end: 150, dur: 1, wave: "sawtooth" },
+                { id: "monster", label: "🧟 怪獸", type: "tone", freq: 80, dur: 1, wave: "sawtooth" },
+                { id: "stab", label: "🔪 刺擊", type: "complex", freq: 1000, dur: 0.2 },
+                { id: "bell", label: "🔔 喪鐘", type: "complex", freq: 200, dur: 4 },
+                { id: "whisper", label: "👂 低語", type: "noise", dur: 1, env: "flat" }
             ]
         };
 
-        // ================= 1. 初始化與音訊路由建置 =================
-        
+        // === YouTube API ===
+        function onYouTubeIframeAPIReady() {
+            ytPlayer = new YT.Player('yt-player', {
+                height: '1', width: '1',
+                playerVars: { 'playsinline': 1, 'controls': 0 },
+                events: { 'onReady': onPlayerReady }
+            });
+        }
+        function onPlayerReady(event) { isYtReady = true; event.target.setVolume(50); }
+
+        // === 2. 初始化流程 ===
         async function joinRoom() {
             const nickInput = document.getElementById('nickname');
             const roomInput = document.getElementById('roomId');
-            
-            if (!nickInput.value || !roomInput.value) {
-                alert("請輸入代號與房號");
-                return;
-            }
-
-            myNickname = nickInput.value;
-            roomId = roomInput.value;
+            if (!nickInput.value || !roomInput.value) { alert("請輸入代號與房號"); return; }
+            myNickname = nickInput.value; roomId = roomInput.value;
 
             try {
-                // 使用 latencyHint 優化延遲
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                audioCtx = new AudioContext({ latencyHint: 'interactive' });
-                
-                const constraints = {
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true,
-                        channelCount: 1 
-                    },
-                    video: false
-                };
-
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
-                setupAudioGraph();
-
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('app-screen').style.display = 'flex';
-                document.getElementById('display-room').textContent = `Room: ${roomId}`;
-                document.getElementById('display-nick').textContent = `Me: ${myNickname}`;
-                
-                // 顯示音訊修復按鈕
-                document.getElementById('btn-audio-fix').style.display = 'inline-block';
-
-                connectSignaling();
-                updateMemberList();
-
-            } catch (err) {
-                console.error(err);
-                alert("無法存取麥克風或發生錯誤: " + err.message);
-            }
-        }
-
-        // [新增] 強制喚醒音效引擎
-        function resumeAudioContext() {
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => {
-                    alert("音訊引擎已喚醒！請確認是否能聽到聲音。");
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 480, height: 360, facingMode: "user" },
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
-            } else {
-                alert("音訊引擎運作中。若仍無聲音，請檢查電腦音量或網路狀況。");
+
+                setupUI();
+                setupAudioGraph();
+                initSoundboard(); // 初始化 100+ 音效
+                startCanvasLoop();
+                connectSignaling();
+            } catch (err) { alert("無法存取設備: " + err.message); }
+        }
+
+        function setupUI() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'flex';
+            document.getElementById('header-info').textContent = `Room: ${roomId} | ${myNickname}`;
+            
+            addVideoCard('local', myNickname, true);
+            const v = document.getElementById('video-local');
+            v.srcObject = localStream; v.muted = true;
+        }
+
+        // === 3. 初始化音效板 UI ===
+        function initSoundboard() {
+            const tabContainer = document.getElementById('sb-tabs-container');
+            const contentContainer = document.getElementById('sb-content-area');
+            let firstCategory = true;
+
+            for (const category in soundLibrary) {
+                // 建立 Tab
+                const tab = document.createElement('button');
+                tab.className = `sb-tab ${firstCategory ? 'active' : ''}`;
+                tab.textContent = category.split(' ')[0]; // 取簡稱
+                tab.onclick = () => switchTab(category, tab);
+                tabContainer.appendChild(tab);
+
+                // 建立按鈕 (預設只顯示第一類)
+                if (firstCategory) {
+                    renderSoundButtons(category);
+                    firstCategory = false;
+                }
             }
         }
 
+        function switchTab(category, tabElem) {
+            // 更新 Tab 樣式
+            document.querySelectorAll('.sb-tab').forEach(t => t.classList.remove('active'));
+            tabElem.classList.add('active');
+            // 更新按鈕
+            renderSoundButtons(category);
+        }
+
+        function renderSoundButtons(category) {
+            const container = document.getElementById('sb-content-area');
+            container.innerHTML = '';
+            const sounds = soundLibrary[category];
+            
+            sounds.forEach(sound => {
+                const btn = document.createElement('button');
+                btn.className = 'sb-btn';
+                if (category.includes("Game")) btn.classList.add('retro-btn');
+                btn.textContent = sound.label;
+                // 綁定點擊事件
+                btn.onclick = () => playSynthSound(sound);
+                container.appendChild(btn);
+            });
+        }
+
+        // === 4. 核心音效合成引擎 (Synth Engine) ===
+        // 這個函式能產生所有 100+ 種音效
+        function playSynthSound(params) {
+            if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const mode = document.querySelector('input[name="sb-mode"]:checked').value;
+            const t = audioCtx.currentTime;
+            
+            // 路由設定
+            const gain = audioCtx.createGain();
+            gain.connect(soundboardGainNode);
+            if (mode === 'broadcast') gain.connect(peerDestNode);
+
+            // 根據類型合成
+            if (params.type === 'noise') {
+                // 白噪音/粉紅噪音
+                const bufSz = audioCtx.sampleRate * params.dur;
+                const buffer = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i=0; i<bufSz; i++) data[i] = Math.random() * 2 - 1;
+                
+                const src = audioCtx.createBufferSource();
+                src.buffer = buffer;
+                src.connect(gain);
+                
+                // Envelope
+                gain.gain.setValueAtTime(1, t);
+                if (params.env === 'fade') gain.gain.exponentialRampToValueAtTime(0.01, t + params.dur);
+                else if (params.env === 'swell') { gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(1, t + params.dur/2); gain.gain.linearRampToValueAtTime(0, t + params.dur); }
+                
+                src.start();
+            } 
+            else if (params.type === 'seq') {
+                // 音序 (Melody)
+                let time = t;
+                params.notes.forEach(note => {
+                    if (note > 0) {
+                        const osc = audioCtx.createOscillator();
+                        osc.type = params.wave || 'sine';
+                        osc.frequency.value = note;
+                        osc.connect(gain);
+                        osc.start(time);
+                        osc.stop(time + params.speed);
+                    }
+                    time += params.speed;
+                });
+                gain.gain.setValueAtTime(0.5, t);
+                gain.gain.setValueAtTime(0, time);
+            }
+            else if (params.type === 'slide') {
+                // 滑音 (Swoosh, Laser)
+                const osc = audioCtx.createOscillator();
+                osc.type = params.wave || 'sine';
+                osc.frequency.setValueAtTime(params.start, t);
+                osc.frequency.exponentialRampToValueAtTime(params.end, t + params.dur);
+                
+                osc.connect(gain);
+                gain.gain.setValueAtTime(0.5, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + params.dur);
+                
+                osc.start(t);
+                osc.stop(t + params.dur);
+            }
+            else if (params.type === 'tone') {
+                // 單音
+                const osc = audioCtx.createOscillator();
+                osc.type = params.wave || 'sine';
+                osc.frequency.value = params.freq;
+                osc.connect(gain);
+                
+                gain.gain.setValueAtTime(0.5, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + params.dur);
+                osc.start(t);
+                osc.stop(t + params.dur);
+            }
+            else if (params.type === 'wobble') {
+                // 顫音 (UFO, Ghost)
+                const osc = audioCtx.createOscillator();
+                osc.frequency.value = params.freq;
+                
+                const lfo = audioCtx.createOscillator();
+                lfo.frequency.value = params.speed;
+                const lfoGain = audioCtx.createGain();
+                lfoGain.gain.value = 200; // Depth
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(osc.frequency);
+                
+                osc.connect(gain);
+                gain.gain.setValueAtTime(0.5, t);
+                gain.gain.linearRampToValueAtTime(0, t + params.dur);
+                
+                osc.start(t); lfo.start(t);
+                osc.stop(t + params.dur); lfo.stop(t + params.dur);
+            }
+            else if (params.type === 'complex') {
+                // 複合波 (Airhorn)
+                const osc1 = audioCtx.createOscillator(); osc1.type = 'sawtooth';
+                const osc2 = audioCtx.createOscillator(); osc2.type = 'square';
+                osc1.frequency.value = params.freq;
+                osc2.frequency.value = params.freq * 1.5; // 5th interval
+                
+                osc1.connect(gain); osc2.connect(gain);
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + params.dur);
+                
+                osc1.start(t); osc2.start(t);
+                osc1.stop(t + params.dur); osc2.stop(t + params.dur);
+            }
+        }
+
+        // === 5. Audio Graph Setup ===
         function setupAudioGraph() {
             micSourceNode = audioCtx.createMediaStreamSource(localStream);
             micGainNode = audioCtx.createGain(); 
-            soundboardGainNode = audioCtx.createGain();
-            soundboardGainNode.gain.value = 0.8;
-            bgmGainNode = audioCtx.createGain();
-            bgmGainNode.gain.value = 0.3; 
+            soundboardGainNode = audioCtx.createGain(); soundboardGainNode.gain.value = 0.8;
+            bgmGainNode = audioCtx.createGain(); bgmGainNode.gain.value = 0.3;
 
             recordDestNode = audioCtx.createMediaStreamDestination();
             peerDestNode = audioCtx.createMediaStreamDestination();
 
+            // Mic -> Peer & Record
             micSourceNode.connect(micGainNode);
-            micGainNode.connect(peerDestNode); 
+            micGainNode.connect(peerDestNode);
             micGainNode.connect(recordDestNode);
-            
+
+            // SB & BGM -> All
             soundboardGainNode.connect(audioCtx.destination);
             soundboardGainNode.connect(recordDestNode);
             
             bgmGainNode.connect(audioCtx.destination);
-            bgmGainNode.connect(peerDestNode);         
-            bgmGainNode.connect(recordDestNode);       
+            bgmGainNode.connect(recordDestNode);
+            bgmGainNode.connect(peerDestNode); 
         }
 
-        // ================= 新增：BGM 功能邏輯 =================
+        function resumeAudio() { if(audioCtx.state === 'suspended') audioCtx.resume(); }
 
-        function toggleBGM() {
-            const btn = document.getElementById('bgm-toggle');
-            if (!isBgmPlaying) {
-                startDroneSound();
-                isBgmPlaying = true;
-                btn.textContent = "ON";
-                btn.classList.add('active');
-            } else {
-                stopDroneSound();
-                isBgmPlaying = false;
-                btn.textContent = "OFF";
-                btn.classList.remove('active');
-            }
-        }
-
-        document.getElementById('bgm-volume').addEventListener('input', (e) => {
-            if(bgmGainNode) bgmGainNode.gain.value = e.target.value / 100;
-        });
-
-        function startDroneSound() {
-            const t = audioCtx.currentTime;
-            const osc1 = audioCtx.createOscillator();
-            osc1.type = 'sawtooth';
-            osc1.frequency.value = 55; 
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.value = 400;
-            const lfo = audioCtx.createOscillator();
-            lfo.type = 'sine';
-            lfo.frequency.value = 0.1; 
-            const lfoGain = audioCtx.createGain();
-            lfoGain.gain.value = 200; 
-
-            lfo.connect(lfoGain);
-            lfoGain.connect(filter.frequency);
-
-            const osc2 = audioCtx.createOscillator();
-            osc2.type = 'sine';
-            osc2.frequency.value = 58; 
-
-            osc1.connect(filter);
-            filter.connect(bgmGainNode);
-            osc2.connect(bgmGainNode); 
-
-            osc1.start(t);
-            osc2.start(t);
-            lfo.start(t);
-
-            bgmOscillators = [osc1, osc2, lfo];
-        }
-
-        function stopDroneSound() {
-            const t = audioCtx.currentTime;
-            bgmOscillators.forEach(osc => { try { osc.stop(t); } catch(e) {} });
-            bgmOscillators = [];
-        }
-
-        // ================= 2. WebSocket Signaling =================
-
+        // === 6. WebSocket ===
         function connectSignaling() {
-            try { ws = new WebSocket(SIGNALING_URL); } 
-            catch (e) { alert("WebSocket URL 錯誤: " + e.message); return; }
-
+            ws = new WebSocket(SIGNALING_URL);
             ws.onopen = () => {
-                document.getElementById('connection-status').textContent = "伺服器已連線";
-                document.getElementById('connection-status').style.color = "var(--success-color)";
-                sendSignal({ type: 'join', roomId: roomId, nickname: myNickname });
+                document.getElementById('connection-badge').textContent = "Online";
+                document.getElementById('connection-badge').classList.add('connected');
+                sendSignal({ type: 'join', roomId, nickname: myNickname });
             };
-            ws.onmessage = async (event) => {
-                const data = JSON.parse(event.data);
-                handleSignalingData(data);
-            };
-            ws.onclose = (e) => {
-                document.getElementById('connection-status').textContent = "伺服器斷線";
-                document.getElementById('connection-status').style.color = "red";
-            };
-            ws.onerror = (e) => { console.error("WS Error:", e); };
+            ws.onmessage = (e) => handleSignalingData(JSON.parse(e.data));
         }
 
         async function handleSignalingData(data) {
             switch (data.type) {
                 case 'room-info':
-                    data.members.forEach(member => {
-                        if (member.id !== myId) createPeerConnection(member.id, member.nickname, true);
-                    });
+                    data.members.forEach(m => { if (m.id !== myId) createPeerConnection(m.id, m.nickname, true); });
                     break;
-                case 'user-joined':
-                    addSystemLog(`${data.nickname} 加入了房間`);
-                    break;
-                case 'user-left':
-                    removePeer(data.id);
-                    addSystemLog(`成員已離開`);
-                    break;
+                case 'user-joined': console.log("User joined"); break;
+                case 'user-left': removePeer(data.id); break;
+                case 'yt-sync': handleYtSync(data); break;
                 case 'signal':
                     const peerId = data.from;
                     if (!peers[peerId]) await createPeerConnection(peerId, "Unknown", false);
@@ -553,288 +827,184 @@
                             await pc.setLocalDescription(answer);
                             sendSignal({ type: 'signal', to: peerId, desc: answer });
                         }
-                    } else if (data.candidate) {
-                        try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } 
-                        catch (e) { console.error("ICE Error", e); }
-                    }
+                    } else if (data.candidate) { try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch(e){} }
                     break;
                 case 'welcome': myId = data.id; break;
             }
         }
-
         function sendSignal(msg) { if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
 
-        // ================= 3. WebRTC Peer Connection (含重要修復) =================
-
+        // === 7. WebRTC ===
         async function createPeerConnection(targetId, nickname, isInitiator) {
-            if (peers[targetId]) return; 
+            if (peers[targetId]) return;
             const pc = new RTCPeerConnection(rtcConfig);
-            addPeerUI(targetId, nickname);
-            
-            peerDestNode.stream.getTracks().forEach(track => pc.addTrack(track, peerDestNode.stream));
+            addVideoCard(targetId, nickname, false);
 
-            // [關鍵] 接收遠端串流
-            pc.ontrack = (event) => handleRemoteStream(targetId, event.streams[0]);
-            
-            pc.onicecandidate = (event) => {
-                if (event.candidate) sendSignal({ type: 'signal', to: targetId, candidate: event.candidate });
-            };
-            
-            pc.onconnectionstatechange = () => {
-                updatePeerStatusUI(targetId, pc.connectionState);
-                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                    console.warn(`Peer ${targetId} connection unstable: ${pc.connectionState}`);
+            localStream.getVideoTracks().forEach(t => pc.addTrack(t, localStream));
+            peerDestNode.stream.getAudioTracks().forEach(t => pc.addTrack(t, peerDestNode.stream));
+
+            pc.ontrack = (event) => {
+                const stream = event.streams[0];
+                if (event.track.kind === 'video') {
+                    const v = document.getElementById(`video-${targetId}`);
+                    v.srcObject = stream;
+                } else {
+                    const src = audioCtx.createMediaStreamSource(stream);
+                    const gain = audioCtx.createGain();
+                    gain.connect(audioCtx.destination);
+                    gain.connect(recordDestNode);
+                    src.connect(gain);
+                    // Keep alive
+                    const aud = new Audio(); aud.srcObject = stream; aud.muted = true; aud.play().catch(e=>{});
                 }
             };
-            
-            pc.oniceconnectionstatechange = () => {
-                updatePeerStatusUI(targetId, pc.iceConnectionState);
-            };
+            pc.onicecandidate = (e) => { if(e.candidate) sendSignal({ type: 'signal', to: targetId, candidate: e.candidate }); };
+            pc.onconnectionstatechange = () => { if(pc.connectionState==='disconnected') removePeer(targetId); };
 
-            peers[targetId] = { conn: pc, nickname: nickname };
+            peers[targetId] = { conn: pc };
             if (isInitiator) {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
                 sendSignal({ type: 'signal', to: targetId, desc: offer });
             }
         }
-
-        // [關鍵修復] 處理遠端聲音
-        function handleRemoteStream(peerId, stream) {
-            // 1. Web Audio 路徑 (用於錄音 + 監聽)
-            const remoteSource = audioCtx.createMediaStreamSource(stream);
-            const remoteGain = audioCtx.createGain(); 
-            
-            remoteGain.connect(audioCtx.destination); // 輸出到喇叭 (聽)
-            remoteGain.connect(recordDestNode);       // 輸出到錄音 (錄)
-            
-            if (peers[peerId]) {
-                peers[peerId].gainNode = remoteGain;
-                remoteSource.connect(remoteGain);
-            }
-
-            // 2. HTML Audio 元素路徑 (用於維持連線活性，但設為靜音避免雙重聲音)
-            // 這是解決「斷斷續續」與「機器人音」的關鍵
-            const audioElem = new Audio();
-            audioElem.srcObject = stream;
-            audioElem.muted = true;    // [重要] 靜音！避免和 Web Audio 重疊產生 Phasing
-            audioElem.autoplay = true; 
-            audioElem.playsInline = true;
-            
-            // 強制掛載到 DOM (隱藏)，防止 Chrome 為了省電暫停它
-            audioElem.style.display = 'none';
-            document.body.appendChild(audioElem);
-            
-            // 嘗試播放以啟動串流解碼
-            audioElem.play().catch(e => console.log("Stream auto-play prevented (Background)", e));
-            
-            // 存起來以便離開時移除
-            peers[peerId].audioElem = audioElem;
-        }
-
         function removePeer(id) {
-            if (peers[id]) {
-                peers[id].conn.close();
-                // 移除 DOM 上的 audio 元素
-                if (peers[id].audioElem) {
-                    peers[id].audioElem.remove();
-                }
-                const el = document.getElementById(`peer-${id}`);
-                if (el) el.remove();
-                delete peers[id];
-            }
+            if (peers[id]) { peers[id].conn.close(); document.getElementById(`card-${id}`).remove(); delete peers[id]; }
         }
 
-        // ================= 4. UI 邏輯 =================
-
-        function addPeerUI(id, nickname) {
-            const container = document.getElementById('member-list');
+        // === 8. Video UI ===
+        function addVideoCard(id, name, isLocal) {
+            const grid = document.getElementById('video-grid');
             const div = document.createElement('div');
-            div.id = `peer-${id}`;
-            div.className = 'member-card';
-            div.innerHTML = `
-                <div class="member-header">
-                    <span>${nickname}</span>
-                    <div><span class="status-dot connecting" id="status-${id}" title="連線中..."></span></div>
-                </div>
-                <div class="controls-row">
-                    <span>音量</span>
-                    <input type="range" min="0" max="150" value="100" oninput="setPeerVolume('${id}', this.value)">
-                </div>
-                <div style="text-align:right; font-size:0.7rem; color:#666;">ID: ${id.substr(0,4)}</div>
-            `;
-            container.appendChild(div);
+            div.className = 'video-card'; div.id = `card-${id}`;
+            div.innerHTML = `<video id="video-${id}" autoplay playsinline ${isLocal?'muted':''}></video><div class="overlay-name">${name}</div>`;
+            grid.appendChild(div);
         }
-
-        function updatePeerStatusUI(id, state) {
-            const dot = document.getElementById(`status-${id}`);
-            const card = document.getElementById(`peer-${id}`);
-            if (!dot) return;
-
-            dot.className = 'status-dot';
-            
-            if (state === 'connected' || state === 'completed') {
-                dot.classList.add('connected');
-                dot.title = "連線穩定";
-                card.style.borderColor = "var(--success-color)";
-            } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
-                dot.classList.add('disconnected');
-                dot.title = "連線中斷";
-                card.style.borderColor = "var(--danger-color)";
-            } else {
-                dot.classList.add('unstable'); 
-                dot.title = "連線建立中或不穩定...";
-                card.style.borderColor = "#777";
+        function toggleCam() {
+            if(localStream) {
+                const t = localStream.getVideoTracks()[0];
+                if(t) { isVideoEnabled = !isVideoEnabled; t.enabled = isVideoEnabled; }
             }
         }
 
-        function setPeerVolume(id, val) {
-            if (peers[id] && peers[id].gainNode) peers[id].gainNode.gain.value = val / 100;
+        // === 9. Canvas Recording ===
+        function startCanvasLoop() {
+            ctx.fillStyle = '#000';
+            canvasInterval = setInterval(() => {
+                ctx.fillRect(0, 0, 1280, 720);
+                const videos = [document.getElementById('video-local')];
+                Object.keys(peers).forEach(id => {
+                    const v = document.getElementById(`video-${id}`);
+                    if(v && v.readyState>=2) videos.push(v);
+                });
+                if(videos.length===0) return;
+                
+                let cols=1, rows=1;
+                if(videos.length>1) { cols=2; rows=videos.length>2?2:1; if(videos.length>4){cols=3; rows=2;} }
+                const w = 1280/cols, h = 720/rows;
+                
+                videos.forEach((v, i) => {
+                    const c = i%cols, r = Math.floor(i/cols);
+                    try { ctx.drawImage(v, c*w, r*h, w, h); } catch(e){}
+                    ctx.strokeStyle='#333'; ctx.strokeRect(c*w, r*h, w, h);
+                });
+            }, 33);
         }
-
-        function updateMemberList() {}
-        function addSystemLog(msg) { console.log(`[System] ${msg}`); }
-
-        // ================= 5. 音效板 =================
-
-        document.getElementById('sb-volume').addEventListener('input', (e) => {
-            const val = e.target.value;
-            document.getElementById('sb-vol-val').textContent = val + '%';
-            if (soundboardGainNode) soundboardGainNode.gain.value = val / 100;
-        });
-
-        function playEffect(name) {
-            if (!audioCtx) return;
-            const mode = document.querySelector('input[name="sb-mode"]:checked').value;
-            const config = sfxConfig[name];
-            
-            const t = audioCtx.currentTime;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            
-            gain.connect(soundboardGainNode);
-
-            if (mode === 'broadcast') {
-                gain.connect(peerDestNode); 
-            }
-
-            if (config.type === 'noise') {
-                const bufferSize = audioCtx.sampleRate * config.duration;
-                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-                const noise = audioCtx.createBufferSource();
-                noise.buffer = buffer;
-                if (config.decay) {
-                    gain.gain.setValueAtTime(1, t);
-                    gain.gain.exponentialRampToValueAtTime(0.01, t + config.duration);
-                }
-                if (config.fade) { 
-                    gain.gain.setValueAtTime(0, t);
-                    gain.gain.linearRampToValueAtTime(1, t + config.duration/2);
-                    gain.gain.linearRampToValueAtTime(0, t + config.duration);
-                }
-                noise.connect(gain);
-                noise.start();
-            } else {
-                osc.type = config.type;
-                if (config.freq) {
-                    if (Array.isArray(config.freq)) {
-                        osc.frequency.setValueAtTime(config.freq[0], t);
-                        osc.frequency.linearRampToValueAtTime(config.freq[1], t + 0.1);
-                        osc.frequency.linearRampToValueAtTime(config.freq[2], t + 0.2);
-                        osc.frequency.linearRampToValueAtTime(config.freq[3], t + 0.3);
-                    } else {
-                        osc.frequency.setValueAtTime(config.freq, t);
-                        if (config.endFreq) osc.frequency.exponentialRampToValueAtTime(config.endFreq, t + config.duration);
-                    }
-                }
-                gain.gain.setValueAtTime(1, t);
-                gain.gain.exponentialRampToValueAtTime(0.01, t + config.duration);
-                osc.connect(gain);
-                osc.start();
-                osc.stop(t + config.duration);
-            }
-        }
-
-        // ================= 6. 錄音功能 =================
 
         function toggleRecording() {
-            const btn = document.getElementById('btn-record-toggle');
-            if (!isRecording) {
-                const mixedStream = recordDestNode.stream;
+            const btn = document.getElementById('btn-record');
+            if(!isRecording) {
+                const stream = canvas.captureStream(30);
+                recordDestNode.stream.getAudioTracks().forEach(t => stream.addTrack(t));
                 
-                const types = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"];
-                recordingMimeType = types.find(t => MediaRecorder.isTypeSupported(t));
+                // 優先使用 mp4 (iOS)
+                let mime = 'video/webm;codecs=vp8,opus';
+                if(!MediaRecorder.isTypeSupported(mime)) mime = 'video/mp4';
 
-                if (!recordingMimeType) {
-                    alert("您的瀏覽器不支援錄音格式，請嘗試使用 Chrome, Firefox 或 Safari 最新版");
-                    return;
-                }
+                try { mediaRecorder = new MediaRecorder(stream, { mimeType: mime }); }
+                catch(e) { alert("錄影失敗: "+e); return; }
 
-                try { 
-                    mediaRecorder = new MediaRecorder(mixedStream, { mimeType: recordingMimeType }); 
-                } 
-                catch (e) { alert("錄音啟動失敗: " + e.message); return; }
-                
                 recordedChunks = [];
-                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
-                mediaRecorder.onstop = exportRecording;
+                mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = saveFile;
                 mediaRecorder.start();
                 
-                isRecording = true;
-                btn.textContent = "停止錄音";
-                btn.classList.add('active'); 
-                btn.style.background = "#333";
+                isRecording = true; btn.innerHTML = "■ 停止"; btn.classList.add('recording');
                 recordingStartTime = Date.now();
-                recordInterval = setInterval(() => {
-                    const diff = Math.floor((Date.now() - recordingStartTime) / 1000);
-                    const m = Math.floor(diff / 60).toString().padStart(2, '0');
-                    const s = (diff % 60).toString().padStart(2, '0');
-                    document.getElementById('rec-timer').textContent = `${m}:${s}`;
+                recInterval = setInterval(() => {
+                    const s = Math.floor((Date.now()-recordingStartTime)/1000);
+                    document.getElementById('rec-timer').innerText = new Date(s*1000).toISOString().substr(14,5);
                 }, 1000);
             } else {
-                mediaRecorder.stop();
-                isRecording = false;
-                btn.textContent = "開始錄音";
-                btn.classList.remove('active');
-                btn.style.background = "var(--danger-color)";
-                clearInterval(recordInterval);
+                mediaRecorder.stop(); isRecording = false; btn.innerHTML = "● 錄影"; btn.classList.remove('recording'); clearInterval(recInterval);
             }
         }
-
-        function exportRecording() {
-            if (recordedChunks.length === 0) return;
-
-            const blob = new Blob(recordedChunks, { type: recordingMimeType });
+        function saveFile() {
+            const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const ext = recordingMimeType.includes('mp4') ? 'mp4' : 'webm';
-            const filename = `recording-${timestamp}.${ext}`;
-            
-            a.style.display = 'block';
-            a.href = url;
-            a.download = filename;
-            a.target = '_blank'; 
-            
-            a.textContent = `下載錄音 (${(blob.size/1024/1024).toFixed(2)} MB)`;
-            a.className = 'btn-primary';
-            a.style.marginTop = '10px';
-            a.style.textDecoration = 'none';
-            a.style.lineHeight = '40px';
-            
-            const tip = document.createElement('div');
-            tip.style.fontSize = '0.8rem';
-            tip.style.color = '#aaa';
-            tip.style.marginTop = '5px';
-            tip.textContent = '若手機無法自動下載，請長按按鈕並選擇「下載連結」或「儲存檔案」';
-
-            const area = document.getElementById('download-area');
-            area.innerHTML = '';
-            area.appendChild(a);
-            area.appendChild(tip);
+            a.href = url; a.download = `rec-${Date.now()}.mp4`; a.textContent = "下載影片"; a.className = "btn-primary";
+            document.getElementById('download-area').innerHTML = '';
+            document.getElementById('download-area').appendChild(a);
         }
+
+        // === 10. YouTube Logic ===
+        function loadYtFromInput() {
+            let url = document.getElementById('yt-url').value;
+            let id = url.length===11 ? url : (url.match(/v=([^&]+)/)?.[1] || "");
+            if(id) sendSignal({ type: 'yt-sync', action: 'load', videoId: id });
+        }
+        function toggleYtState() {
+            if(!isYtReady) return;
+            const action = ytPlayer.getPlayerState()===1 ? 'pause' : 'play';
+            sendSignal({ type: 'yt-sync', action: action });
+        }
+        function setYtVolume(v) { if(isYtReady) ytPlayer.setVolume(v); }
+        function handleYtSync(d) {
+            if(!isYtReady) return;
+            if(d.action==='load') ytPlayer.loadVideoById(d.videoId);
+            else if(d.action==='play') ytPlayer.playVideo();
+            else if(d.action==='pause') ytPlayer.pauseVideo();
+        }
+        
+        async function captureTabAudio() {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                const audioTrack = stream.getAudioTracks()[0];
+                if(!audioTrack) return alert("未選取音訊！");
+                
+                // Stop video to save resource
+                stream.getVideoTracks().forEach(t => t.stop());
+                
+                if(tabAudioSource) tabAudioSource.disconnect();
+                tabAudioSource = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
+                tabAudioSource.connect(bgmGainNode); // Route to mixer
+                
+                const btn = document.getElementById('btn-capture-tab');
+                btn.textContent = "📡 已擷取 (錄製中)"; btn.classList.add('capturing');
+                audioTrack.onended = () => { btn.textContent = "📡 抓取分頁聲音"; btn.classList.remove('capturing'); };
+            } catch(e) { console.log(e); }
+        }
+
+        // === 11. BGM ===
+        function toggleBGM() {
+            if(!isBgmPlaying) {
+                const osc = audioCtx.createOscillator(); osc.frequency.value = 55; // Low Drone
+                osc.connect(bgmGainNode); osc.start(); bgmOscillators.push(osc);
+                isBgmPlaying = true; document.getElementById('bgm-toggle').innerText="ON";
+            } else {
+                bgmOscillators.forEach(o=>o.stop()); bgmOscillators=[];
+                isBgmPlaying = false; document.getElementById('bgm-toggle').innerText="OFF";
+            }
+        }
+        
+        // 防呆事件綁定
+        const bgmSlider = document.getElementById('bgm-volume');
+        if(bgmSlider) bgmSlider.oninput = e => { if(bgmGainNode) bgmGainNode.gain.value = e.target.value/100; };
+        
+        const sbSlider = document.getElementById('sb-volume');
+        if(sbSlider) sbSlider.oninput = e => { if(soundboardGainNode) soundboardGainNode.gain.value = e.target.value/100; };
+
     </script>
 </body>
 </html>
