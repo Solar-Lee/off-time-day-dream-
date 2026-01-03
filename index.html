@@ -3,339 +3,420 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全維度多人視訊錄音室 (百大音效旗艦版)</title>
+    <title>全維度多人視訊錄音室 (PRO UI)</title>
     <style>
+        /* === 全域變數定義 (Design Tokens) === */
         :root {
-            --bg-color: #121212;
-            --panel-color: #1e1e1e;
-            --text-color: #e0e0e0;
-            --accent-color: #00d2ff;
-            --danger-color: #ff4757;
-            --success-color: #2ed573;
-            --warn-color: #ff9f43;
-            --yt-color: #ff0000;
-            --retro-color: #f1c40f;
-            --tab-active-bg: #333;
+            /* 顏色系統 */
+            --bg-body: #09090b;       /* 極深背景 */
+            --bg-panel: #18181b;      /* 面板背景 */
+            --bg-element: #27272a;    /* 元件背景 */
+            --border-color: #3f3f46;  /* 邊框顏色 */
+            
+            --text-main: #f4f4f5;     /* 主要文字 */
+            --text-muted: #a1a1aa;    /* 次要文字 */
+            
+            --accent-primary: #3b82f6; /* 主色調 (藍) */
+            --accent-success: #10b981; /* 成功/連線 (綠) */
+            --accent-danger: #ef4444;  /* 危險/錄製 (紅) */
+            --accent-warn: #f59e0b;    /* 警告 (黃) */
+            --accent-retro: #eab308;   /* 復古音效色 */
+            --accent-yt: #f43f5e;      /* YouTube 色 */
+
+            /* 尺寸系統 */
+            --header-height: 56px;
+            --sidebar-width: 360px;
+            --radius-md: 8px;
+            --radius-sm: 4px;
         }
+
+        * { box-sizing: border-box; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
             margin: 0;
             display: flex;
             flex-direction: column;
             height: 100vh;
             overflow: hidden;
         }
-        
-        /* 登入畫面 */
+
+        /* 捲軸美化 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #666; }
+
+        /* === 登入畫面 (Modal Style) === */
         #login-screen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            z-index: 100;
-            background: var(--bg-color);
             position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+        .login-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            padding: 2.5rem;
+            border-radius: 16px;
             width: 100%;
-        }
-        .card {
-            background: var(--panel-color);
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            max-width: 400px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             text-align: center;
-            width: 320px;
         }
-        input {
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #aaa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .login-input {
+            width: 100%;
+            padding: 12px 16px;
+            margin: 12px 0;
+            background: var(--bg-body);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .login-input:focus { border-color: var(--accent-primary); }
+        .login-btn {
             width: 100%;
             padding: 12px;
-            margin: 10px 0;
-            border-radius: 6px;
-            border: 1px solid #444;
-            background: #2a2a2a;
+            background: var(--accent-primary);
             color: white;
-            box-sizing: border-box;
-        }
-        button {
-            padding: 12px 20px;
-            border-radius: 6px;
             border: none;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
+            border-radius: var(--radius-md);
+            font-weight: 600;
             font-size: 1rem;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: opacity 0.2s;
         }
-        .btn-primary { background: var(--accent-color); color: #000; width: 100%; }
-        .btn-primary:hover { background: #33e0ff; }
-        
-        /* 主介面佈局 */
+        .login-btn:hover { opacity: 0.9; }
+
+        /* === 主介面結構 === */
         #app-screen {
-            display: none;
+            display: none; /* JS控制顯示 */
             flex: 1;
             flex-direction: column;
             height: 100%;
         }
-        
-        /* 頂部導航 */
+
+        /* 頂部導航列 (Header) */
         header {
-            background: var(--panel-color);
-            padding: 10px 20px;
+            height: var(--header-height);
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            justify-content: space-between;
+            padding: 0 20px;
             z-index: 10;
         }
-        .status-badge {
-            font-size: 0.8rem;
-            padding: 4px 8px;
-            border-radius: 4px;
-            background: #333;
-            color: #888;
+        .brand-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
-        .status-badge.connected { color: var(--success-color); background: rgba(46, 213, 115, 0.1); }
-        .btn-mini {
-            padding: 5px 10px;
-            font-size: 0.8rem;
-            background: #444;
-            color: #fff;
-            margin-left: 10px;
+        .room-tag {
+            font-size: 0.85rem;
+            padding: 4px 10px;
+            background: var(--bg-element);
+            border-radius: 20px;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
         }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            background: var(--border-color);
+            border-radius: 50%;
+        }
+        .status-dot.active { background: var(--accent-success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
 
-        /* 內容區：左右分割 */
+        .header-actions { display: flex; gap: 8px; }
+        .icon-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .icon-btn:hover { background: var(--bg-element); }
+        .icon-btn.active { background: var(--bg-element); border-color: var(--accent-primary); color: var(--accent-primary); }
+
+        /* 中間內容區 (Layout) */
         .content-area {
             display: flex;
             flex: 1;
             overflow: hidden;
-            position: relative;
         }
 
-        /* 左側：視訊網格區 */
-        .video-stage {
-            flex: 2;
+        /* === 左側：視訊舞台 (Video Stage) === */
+        .stage-container {
+            flex: 1;
             background: #000;
             position: relative;
+            padding: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px;
-            overflow: hidden;
         }
         
-        /* 視訊網格佈局 (CSS Grid) */
         #video-grid {
             display: grid;
-            gap: 10px;
+            gap: 16px;
             width: 100%;
             height: 100%;
-            max-width: 1280px;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            max-width: 1600px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             grid-auto-rows: 1fr;
         }
 
         .video-card {
-            background: #222;
-            border-radius: 8px;
+            background: var(--bg-element);
+            border-radius: 12px;
             overflow: hidden;
             position: relative;
-            border: 2px solid #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            border: 2px solid transparent;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: border-color 0.2s;
         }
-        .video-card video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .video-card .overlay-name {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.6);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            z-index: 2;
-        }
-        .video-card.talking {
-            border-color: var(--success-color);
-        }
-
-        /* 隱藏的 Canvas (用於混流錄製) */
-        #mixer-canvas { display: none; }
+        .video-card.talking { border-color: var(--accent-success); }
         
-        /* YouTube 隱藏播放器 */
-        #yt-player-container {
+        .video-card video {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        
+        .user-label {
             position: absolute;
-            top: -9999px;
-            left: -9999px;
-            width: 1px;
-            height: 1px;
-            opacity: 0;
-            pointer-events: none;
+            bottom: 12px; left: 12px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
         }
 
-        /* 右側：控制面板 */
+        /* === 右側：控制面板 (Console) === */
         .sidebar {
-            flex: 1;
-            min-width: 340px; /* 加寬以容納音效板 */
-            max-width: 400px;
-            background: var(--panel-color);
-            border-left: 1px solid #333;
+            width: var(--sidebar-width);
+            background: var(--bg-panel);
+            border-left: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             overflow-y: auto;
         }
-        
+
         .panel-section {
-            padding: 15px;
-            border-bottom: 1px solid #333;
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
         }
-        .panel-title {
-            font-size: 0.9rem;
-            color: #888;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 12px;
+        }
+        .panel-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+            color: var(--text-muted);
         }
 
-        /* === 音效板樣式 (升級版) === */
-        .soundboard-container {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            height: 400px; /* 固定高度讓內容捲動 */
+        /* 1. Master Record */
+        .record-display {
+            background: #1c1c1e;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
         }
-        
-        /* 分類 Tabs */
+        .record-display::before {
+            content: ''; position: absolute; top:0; left:0; width: 4px; height: 100%;
+            background: var(--accent-danger); opacity: 0.5;
+        }
+        .time-code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 8px 0;
+            letter-spacing: 2px;
+        }
+        .rec-btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--accent-danger);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .rec-btn:hover { filter: brightness(1.1); }
+        .rec-btn.active {
+            background: transparent;
+            border: 1px solid var(--accent-danger);
+            color: var(--accent-danger);
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red { 0% {box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);} 70% {box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);} 100% {box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);} }
+
+        .download-link {
+            display: block; margin-top: 10px;
+            font-size: 0.85rem; text-decoration: none;
+            color: var(--accent-primary);
+            text-align: center;
+        }
+
+        /* 2. Soundboard (Grid Style) */
         .sb-tabs {
             display: flex;
-            gap: 5px;
-            overflow-x: auto;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #333;
+            gap: 4px;
+            margin-bottom: 12px;
+            background: var(--bg-element);
+            padding: 4px;
+            border-radius: var(--radius-md);
         }
         .sb-tab {
-            background: transparent;
+            flex: 1;
+            padding: 6px 0;
+            font-size: 0.75rem;
             border: none;
-            color: #888;
-            padding: 6px 12px;
+            background: transparent;
+            color: var(--text-muted);
             cursor: pointer;
-            font-size: 0.8rem;
-            white-space: nowrap;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
         }
-        .sb-tab.active {
-            background: var(--accent-color);
-            color: #000;
-            font-weight: bold;
-        }
-        .sb-tab:hover:not(.active) {
-            background: #333;
-            color: #fff;
-        }
-
-        /* 音效按鈕網格 */
-        .sb-content {
+        .sb-tab.active { background: var(--bg-panel); color: var(--text-main); font-weight: 600; shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        
+        .sb-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 8px;
+            max-height: 240px;
             overflow-y: auto;
-            padding-right: 5px;
+            padding-right: 4px;
         }
-        .sb-btn {
-            background: #333;
-            color: #ddd;
-            padding: 10px 5px;
+        .pad-btn {
+            aspect-ratio: 1.2; /* 方形按鈕 */
+            background: var(--bg-element);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             font-size: 0.75rem;
-            border-radius: 4px;
-            border: 1px solid #444;
+            gap: 4px;
             transition: all 0.1s;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
-        .sb-btn:hover { background: #444; border-color: #666; }
-        .sb-btn:active { 
-            background: var(--accent-color); 
-            color: #000; 
-            transform: scale(0.95); 
-            border-color: var(--accent-color);
-        }
-        
-        /* 錄音控制 */
-        .record-box {
-            background: rgba(255, 71, 87, 0.1);
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid var(--danger-color);
-        }
-        .timer-display {
-            font-size: 2rem;
-            font-family: monospace;
-            color: var(--danger-color);
-            margin: 10px 0;
-            font-weight: bold;
-        }
-        .btn-record {
-            background: var(--danger-color);
-            color: white;
-            width: 100%;
-            padding: 15px;
-            font-size: 1.1rem;
-        }
-        .btn-record.recording { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
-        
-        /* YouTube 控制區 */
-        .yt-control-row { display: flex; gap: 5px; margin-top: 5px; }
-        .yt-input {
-            background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 6px;
-            font-size: 0.8rem; border-radius: 4px; width: 100%;
-        }
-        .btn-yt {
-            background: #333; color: #fff; border: none; padding: 6px 12px;
-            border-radius: 4px; cursor: pointer; font-size: 0.8rem;
-        }
-        .btn-yt:hover { background: var(--yt-color); }
-        .btn-yt.active { background: var(--yt-color); }
-        
-        .btn-capture {
-            background: #333; color: var(--yt-color); border: 1px solid var(--yt-color);
-            width: 100%; margin-top: 8px; padding: 8px; border-radius: 4px;
-            cursor: pointer; font-size: 0.8rem;
-        }
-        .btn-capture:hover { background: var(--yt-color); color: white; }
-        .btn-capture.capturing { background: var(--yt-color); color: white; animation: pulse 2s infinite; }
+        .pad-btn:hover { background: #3f3f46; color: white; }
+        .pad-btn:active { transform: scale(0.95); background: var(--accent-primary); border-color: var(--accent-primary); color: white; }
+        .pad-btn.retro-style { border-bottom: 3px solid var(--accent-retro); }
+        .pad-btn.retro-style:active { border-bottom-width: 1px; transform: translateY(2px); }
 
-        /* 切換開關 */
-        .toggle-row {
-            display: flex; gap: 5px; background: #333; padding: 4px;
-            border-radius: 20px; margin-bottom: 10px;
+        /* 3. Sliders (Volume) */
+        .vol-control {
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 10px; font-size: 0.8rem; color: var(--text-muted);
         }
-        .toggle-row label {
-            flex: 1; text-align: center; padding: 6px; font-size: 0.8rem;
-            cursor: pointer; border-radius: 16px; transition: 0.2s;
+        input[type=range] {
+            flex: 1; -webkit-appearance: none; background: transparent;
         }
-        .toggle-row input { display: none; }
-        .toggle-row input:checked + span {
-            background: var(--text-color); color: #000; display: block;
-            border-radius: 16px; font-weight: bold;
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; background: var(--bg-element); border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
+            background: var(--text-main); margin-top: -5px; cursor: pointer;
+            box-shadow: 0 0 0 2px var(--bg-panel);
         }
 
-        /* 手機 RWD */
-        @media (max-width: 768px) {
+        /* 4. YouTube Section */
+        .yt-input-group {
+            display: flex; gap: 8px; margin-bottom: 10px;
+        }
+        .styled-input {
+            flex: 1; background: var(--bg-element); border: 1px solid var(--border-color);
+            color: white; padding: 8px; border-radius: var(--radius-sm); font-size: 0.85rem;
+        }
+        .action-btn {
+            background: var(--bg-element); border: 1px solid var(--border-color);
+            color: var(--text-main); padding: 0 12px; border-radius: var(--radius-sm); cursor: pointer;
+        }
+        .action-btn:hover { background: #3f3f46; }
+        .action-btn.play { background: var(--accent-yt); border-color: var(--accent-yt); color: white; }
+        
+        .capture-btn {
+            width: 100%; padding: 8px;
+            background: transparent; border: 1px dashed var(--border-color);
+            color: var(--text-muted); border-radius: var(--radius-sm);
+            font-size: 0.8rem; cursor: pointer; margin-top: 8px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .capture-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+        .capture-btn.active { background: rgba(59, 130, 246, 0.1); border-style: solid; border-color: var(--accent-primary); color: var(--accent-primary); }
+
+        /* Hidden Elements */
+        #mixer-canvas, #yt-player-container { display: none; }
+
+        /* Switch Toggle */
+        .mode-switch {
+            display: flex; background: var(--bg-element); border-radius: 20px; padding: 2px;
+        }
+        .mode-switch label {
+            padding: 4px 12px; font-size: 0.75rem; cursor: pointer; border-radius: 16px; color: var(--text-muted); transition: 0.2s;
+        }
+        .mode-switch input { display: none; }
+        .mode-switch input:checked + span { background: var(--border-color); color: white; font-weight: 600; }
+
+        /* RWD */
+        @media (max-width: 900px) {
             .content-area { flex-direction: column; }
-            .video-stage { flex: 1; min-height: 40vh; }
-            .sidebar { flex: 1; max-width: 100%; min-width: 0; }
+            .sidebar { width: 100%; height: 40vh; border-left: none; border-top: 1px solid var(--border-color); }
             #video-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
@@ -344,111 +425,131 @@
 </head>
 <body>
 
-    <!-- Canvas 混流引擎 -->
+    <!-- 隱藏的混音與播放器 -->
     <canvas id="mixer-canvas" width="1280" height="720"></canvas>
     <div id="yt-player-container"><div id="yt-player"></div></div>
 
-    <!-- 登入頁 -->
+    <!-- 登入 Modal -->
     <div id="login-screen">
-        <div class="card">
-            <h2 style="margin-top:0">全維度視訊錄音室</h2>
-            <p style="font-size:0.8rem; color:#888;">Video + Audio + 100+ SFX</p>
-            <input type="text" id="nickname" placeholder="你的代號" maxlength="10">
-            <input type="text" id="roomId" placeholder="房號" value="room1">
-            <button class="btn-primary" onclick="joinRoom()">開啟鏡頭並加入</button>
-            <div style="margin-top:15px; font-size:0.8rem; color:var(--warn-color);">
-                ⚠️ 請務必配戴耳機
+        <div class="login-card">
+            <h1 class="login-title">OMNI STUDIO</h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">全維度即時視訊混音系統</p>
+            <input type="text" id="nickname" class="login-input" placeholder="Enter Nickname" maxlength="10">
+            <input type="text" id="roomId" class="login-input" placeholder="Room ID" value="LIVE-01">
+            <button class="login-btn" onclick="joinRoom()">ENTER STUDIO</button>
+            <div style="margin-top:15px; font-size:0.8rem; color:var(--accent-warn);">
+                *建議使用電腦並配戴耳機以獲得最佳體驗
             </div>
         </div>
     </div>
 
-    <!-- 主應用 -->
+    <!-- 主程式介面 -->
     <div id="app-screen">
+        <!-- 頂部資訊列 -->
         <header>
-            <div style="display:flex; align-items:center;">
-                <span id="header-info" style="font-weight:bold;">Room: ???</span>
-                <span id="connection-badge" class="status-badge" style="margin-left:10px;">Connecting...</span>
+            <div class="brand-area">
+                <span style="font-weight:900; letter-spacing:1px; color:white;">OMNI</span>
+                <span class="room-tag" id="header-info">Waiting...</span>
             </div>
-            <div>
-                <button class="btn-mini" onclick="toggleCam()">📷 開/關鏡頭</button>
-                <button class="btn-mini" onclick="resumeAudio()">🔊 喚醒音效引擎</button>
+            <div class="header-actions">
+                <div class="status-indicator">
+                    <div id="connection-dot" class="status-dot"></div>
+                    <span id="connection-text">Offline</span>
+                </div>
+                <button class="icon-btn" onclick="toggleCam()">
+                    <span>📷</span>
+                </button>
+                <button class="icon-btn" onclick="resumeAudio()">
+                    <span>🔊</span>
+                </button>
             </div>
         </header>
 
         <div class="content-area">
-            <!-- 左側：視訊牆 -->
-            <div class="video-stage">
+            <!-- 左側：視訊舞台 -->
+            <div class="stage-container">
                 <div id="video-grid"></div>
             </div>
 
             <!-- 右側：控制台 -->
             <div class="sidebar">
                 
-                <!-- 錄製控制 -->
+                <!-- 錄製模組 -->
                 <div class="panel-section">
-                    <div class="panel-title">Master Record</div>
-                    <div class="record-box">
-                        <div id="rec-timer" class="timer-display">00:00</div>
-                        <button id="btn-record" class="btn-record" onclick="toggleRecording()">● 開始錄影</button>
+                    <div class="panel-header">
+                        <span class="panel-title">MASTER OUTPUT</span>
+                        <span style="font-size:0.7rem; color:#666;">WEBM/MP4</span>
+                    </div>
+                    <div class="record-display">
+                        <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Recording Time</div>
+                        <div id="rec-timer" class="time-code">00:00:00</div>
+                        <button id="btn-record" class="rec-btn" onclick="toggleRecording()">
+                            <span class="rec-icon">●</span> START RECORDING
+                        </button>
                         <div id="download-area"></div>
                     </div>
                 </div>
 
-                <!-- 音效板 (旗艦升級版) -->
-                <div class="panel-section" style="flex:1; display:flex; flex-direction:column;">
-                    <div class="panel-title">
-                        Soundboard (Synth)
-                        <div class="toggle-row" style="margin-bottom:0; width:140px;">
-                            <label><input type="radio" name="sb-mode" value="local" checked><span>🎧 試聽</span></label>
-                            <label><input type="radio" name="sb-mode" value="broadcast"><span>📡 廣播</span></label>
+                <!-- 音效板模組 -->
+                <div class="panel-section" style="flex:1; display:flex; flex-direction:column; min-height: 300px;">
+                    <div class="panel-header">
+                        <span class="panel-title">SOUNDBOARD</span>
+                        <div class="mode-switch">
+                            <label><input type="radio" name="sb-mode" value="local" checked><span>Cue</span></label>
+                            <label><input type="radio" name="sb-mode" value="broadcast"><span>Air</span></label>
                         </div>
                     </div>
                     
-                    <!-- 音效分類 Tabs -->
                     <div class="sb-tabs" id="sb-tabs-container">
-                        <!-- 由 JS 動態生成 -->
+                        <!-- JS Generated -->
                     </div>
 
-                    <!-- 音效按鈕區 -->
-                    <div class="sb-content" id="sb-content-area">
-                        <!-- 由 JS 動態生成 -->
+                    <div class="sb-grid" id="sb-content-area">
+                        <!-- JS Generated -->
                     </div>
 
-                    <div style="margin-top:10px; display:flex; align-items:center; gap:5px;">
-                         <span style="font-size:0.8rem;">Vol:</span>
-                         <input type="range" id="sb-volume" min="0" max="150" value="80" style="flex:1;">
+                    <div class="vol-control">
+                        <span>SFX Vol</span>
+                        <input type="range" id="sb-volume" min="0" max="150" value="80">
                     </div>
                 </div>
 
-                <!-- Drone BGM (補回) -->
+                <!-- 環境音效 (Drone) -->
                 <div class="panel-section">
-                    <div style="display:flex; justify-content:space-between;">
-                        <div class="panel-title">Drone BGM</div>
-                        <button id="bgm-toggle" class="btn-mini" style="margin:0" onclick="toggleBGM()">OFF</button>
+                    <div class="panel-header">
+                        <span class="panel-title">ATMOSPHERE</span>
+                        <button id="bgm-toggle" class="icon-btn" style="font-size:0.7rem; padding:2px 8px;" onclick="toggleBGM()">OFF</button>
                     </div>
-                    <input type="range" id="bgm-volume" min="0" max="100" value="30" style="margin-top:5px;">
+                    <div class="vol-control" style="margin-top:0;">
+                        <span>Drone</span>
+                        <input type="range" id="bgm-volume" min="0" max="100" value="30">
+                    </div>
                 </div>
 
-                <!-- YouTube & BGM -->
+                <!-- YouTube 模組 -->
                 <div class="panel-section">
-                    <div class="panel-title" style="color:var(--yt-color);">YouTube Sync</div>
-                    <input type="text" id="yt-url" class="yt-input" placeholder="YouTube ID or URL">
-                    <div class="yt-control-row">
-                        <button class="btn-yt" onclick="loadYtFromInput()">Load</button>
-                        <button id="yt-play-btn" class="btn-yt" onclick="toggleYtState()">Play</button>
+                    <div class="panel-header">
+                        <span class="panel-title" style="color:var(--accent-yt);">YOUTUBE SYNC</span>
                     </div>
-                    <button id="btn-capture-tab" class="btn-capture" onclick="captureTabAudio()">📡 抓取分頁聲音 (錄製用)</button>
-                    <div style="margin-top:5px; display:flex; align-items:center; gap:5px;">
-                        <span style="font-size:0.8rem;">Vol:</span>
+                    <div class="yt-input-group">
+                        <input type="text" id="yt-url" class="styled-input" placeholder="Video ID / URL">
+                        <button class="action-btn" onclick="loadYtFromInput()">Load</button>
+                        <button id="yt-play-btn" class="action-btn play" onclick="toggleYtState()">▶</button>
+                    </div>
+                    <div class="vol-control">
+                        <span>Music</span>
                         <input type="range" id="yt-volume" min="0" max="100" value="50" oninput="setYtVolume(this.value)">
                     </div>
+                    <button id="btn-capture-tab" class="capture-btn" onclick="captureTabAudio()">
+                        <span>📡</span> 擷取分頁音訊 (錄製必備)
+                    </button>
                 </div>
 
             </div>
         </div>
     </div>
 
-    <!-- 腳本 -->
+    <!-- 腳本邏輯 (功能保持不變，僅適配新 UI ID) -->
     <script>
         // === 全域變數 ===
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -482,92 +583,47 @@
 
         const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-        // === 1. 音效庫定義 (100+ Sounds) ===
-        // 我們使用參數化的方式定義音效，不使用外部檔案
+        // === 1. 音效庫定義 (Same as before) ===
         const soundLibrary = {
-            "Reactions (反應)": [
-                { id: "applause", label: "👏 掌聲", type: "noise", dur: 2, env: "fade" },
-                { id: "laugh_chip", label: "😂 花栗鼠笑", type: "seq", notes: [800, 600, 900, 700, 800], speed: 0.08, wave: "sawtooth" },
-                { id: "gasp", label: "😱 倒抽氣", type: "slide", start: 300, end: 800, dur: 0.3, wave: "sine" },
-                { id: "cheer", label: "🎉 歡呼", type: "noise", dur: 3, env: "swell" },
-                { id: "boo", label: "👎 噓聲", type: "tone", freq: 100, dur: 1.5, wave: "sawtooth" },
-                { id: "wow", label: "😮 哇!", type: "slide", start: 200, end: 400, dur: 0.5, wave: "triangle" },
-                { id: "awww", label: "🥺 Awww", type: "slide", start: 600, end: 400, dur: 0.8, wave: "sine" },
-                { id: "scream", label: "🙀 尖叫", type: "slide", start: 800, end: 1200, dur: 0.5, wave: "sawtooth" },
-                { id: "cry", label: "😭 哭哭", type: "seq", notes: [600, 500, 580, 480], speed: 0.2, wave: "triangle" },
-                { id: "whistle", label: "😚 口哨", type: "slide", start: 1000, end: 1500, dur: 0.3, wave: "sine" }
+            "Reactions": [
+                { id: "applause", label: "👏 Applause", type: "noise", dur: 2, env: "fade" },
+                { id: "laugh_chip", label: "😂 Laugh", type: "seq", notes: [800, 600, 900, 700, 800], speed: 0.08, wave: "sawtooth" },
+                { id: "gasp", label: "😱 Gasp", type: "slide", start: 300, end: 800, dur: 0.3, wave: "sine" },
+                { id: "cheer", label: "🎉 Cheer", type: "noise", dur: 3, env: "swell" },
+                { id: "boo", label: "👎 Boo", type: "tone", freq: 100, dur: 1.5, wave: "sawtooth" },
+                { id: "wow", label: "😮 Wow", type: "slide", start: 200, end: 400, dur: 0.5, wave: "triangle" }
             ],
-            "Broadcasting (節目)": [
-                { id: "news_intro", label: "📰 新聞片頭", type: "seq", notes: [523, 659, 783, 1046], speed: 0.1, wave: "square" },
-                { id: "censored", label: "🤬 消音嗶", type: "tone", freq: 1000, dur: 0.5, wave: "sine" },
-                { id: "airhorn", label: "📯 空氣喇叭", type: "complex", freq: 400, dur: 0.8 },
-                { id: "correct", label: "⭕ 正確", type: "seq", notes: [600, 800], speed: 0.1, wave: "sine" },
-                { id: "wrong", label: "❌ 錯誤", type: "tone", freq: 150, dur: 0.4, wave: "sawtooth" },
-                { id: "suspense", label: "😰 懸疑", type: "tone", freq: 50, dur: 3, wave: "sawtooth" },
-                { id: "drumroll", label: "🥁 鼓聲", type: "noise", dur: 1.5, env: "flat" },
-                { id: "rimshot", label: "🤡 諧音梗", type: "seq", notes: [200, 200, 600], speed: 0.05, wave: "square" },
-                { id: "intro_beat", label: "🎵 動感開場", type: "seq", notes: [100, 0, 100, 0, 200], speed: 0.2, wave: "square" },
-                { id: "level_up", label: "🆙 升級", type: "seq", notes: [440, 554, 659, 880], speed: 0.1, wave: "triangle" }
+            "Broadcast": [
+                { id: "news_intro", label: "📰 News Intro", type: "seq", notes: [523, 659, 783, 1046], speed: 0.1, wave: "square" },
+                { id: "censored", label: "🤬 Beep", type: "tone", freq: 1000, dur: 0.5, wave: "sine" },
+                { id: "airhorn", label: "📯 Airhorn", type: "complex", freq: 400, dur: 0.8 },
+                { id: "correct", label: "⭕ Correct", type: "seq", notes: [600, 800], speed: 0.1, wave: "sine" },
+                { id: "wrong", label: "❌ Wrong", type: "tone", freq: 150, dur: 0.4, wave: "sawtooth" },
+                { id: "suspense", label: "😰 Suspense", type: "tone", freq: 50, dur: 3, wave: "sawtooth" }
             ],
-            "Retro Game (復古)": [
-                { id: "coin", label: "🪙 金幣", type: "seq", notes: [987, 1318], speed: 0.08, wave: "square" },
-                { id: "jump", label: "🦘 跳躍", type: "slide", start: 150, end: 600, dur: 0.2, wave: "square" },
-                { id: "powerup", label: "🍄 變大", type: "slide", start: 440, end: 880, dur: 0.5, wave: "sawtooth" },
-                { id: "laser", label: "🔫 雷射", type: "slide", start: 880, end: 110, dur: 0.15, wave: "sawtooth" },
-                { id: "hit", label: "🥊 被打", type: "noise", dur: 0.1, env: "fade" },
-                { id: "die", label: "💀 死亡", type: "slide", start: 400, end: 50, dur: 0.8, wave: "sawtooth" },
-                { id: "pause", label: "⏸️ 暫停", type: "seq", notes: [600, 0, 600], speed: 0.1, wave: "triangle" },
-                { id: "gameover", label: "🏁 結束", type: "seq", notes: [600, 500, 400, 300], speed: 0.3, wave: "square" },
-                { id: "block", label: "🧱 撞頭", type: "tone", freq: 100, dur: 0.05, wave: "square" },
-                { id: "fireball", label: "🔥 火球", type: "noise", dur: 0.3, env: "fade" }
+            "8-Bit Retro": [
+                { id: "coin", label: "🪙 Coin", type: "seq", notes: [987, 1318], speed: 0.08, wave: "square" },
+                { id: "jump", label: "🦘 Jump", type: "slide", start: 150, end: 600, dur: 0.2, wave: "square" },
+                { id: "powerup", label: "🍄 PowerUp", type: "slide", start: 440, end: 880, dur: 0.5, wave: "sawtooth" },
+                { id: "laser", label: "🔫 Laser", type: "slide", start: 880, end: 110, dur: 0.15, wave: "sawtooth" },
+                { id: "hit", label: "🥊 Hit", type: "noise", dur: 0.1, env: "fade" },
+                { id: "die", label: "💀 Die", type: "slide", start: 400, end: 50, dur: 0.8, wave: "sawtooth" }
             ],
-            "UI & System (介面)": [
-                { id: "click", label: "🖱️ 點擊", type: "tone", freq: 800, dur: 0.05, wave: "sine" },
-                { id: "popup", label: "💬 彈窗", type: "tone", freq: 1200, dur: 0.1, wave: "sine" },
-                { id: "notify", label: "🔔 通知", type: "seq", notes: [800, 1200], speed: 0.1, wave: "sine" },
-                { id: "error", label: "⚠️ 錯誤", type: "tone", freq: 150, dur: 0.2, wave: "sawtooth" },
-                { id: "success", label: "✅ 成功", type: "seq", notes: [800, 1000], speed: 0.1, wave: "sine" },
-                { id: "delete", label: "🗑️ 刪除", type: "slide", start: 300, end: 50, dur: 0.2, wave: "noise" },
-                { id: "typing", label: "⌨️ 打字", type: "noise", dur: 0.05, env: "fade" },
-                { id: "camera", label: "📸 快門", type: "noise", dur: 0.1, env: "fade" },
-                { id: "switch", label: "🔘 開關", type: "tone", freq: 600, dur: 0.05, wave: "square" },
-                { id: "loading", label: "⏳ 載入", type: "seq", notes: [600, 800, 1000], speed: 0.2, wave: "sine" }
+            "UI FX": [
+                { id: "click", label: "🖱️ Click", type: "tone", freq: 800, dur: 0.05, wave: "sine" },
+                { id: "notify", label: "🔔 Notify", type: "seq", notes: [800, 1200], speed: 0.1, wave: "sine" },
+                { id: "error", label: "⚠️ Error", type: "tone", freq: 150, dur: 0.2, wave: "sawtooth" },
+                { id: "success", label: "✅ Success", type: "seq", notes: [800, 1000], speed: 0.1, wave: "sine" },
+                { id: "typing", label: "⌨️ Type", type: "noise", dur: 0.05, env: "fade" },
+                { id: "camera", label: "📸 Snap", type: "noise", dur: 0.1, env: "fade" }
             ],
-            "Sci-Fi (科幻)": [
-                { id: "teleport", label: "🌌 傳送", type: "slide", start: 200, end: 2000, dur: 1.5, wave: "sine" },
-                { id: "scanner", label: "📡 掃描", type: "wobble", freq: 800, dur: 2, speed: 10 },
-                { id: "ufo", label: "🛸 飛碟", type: "wobble", freq: 1200, dur: 3, speed: 5 },
-                { id: "robot", label: "🤖 機器人", type: "seq", notes: [200, 250, 200, 300], speed: 0.1, wave: "square" },
-                { id: "energy", label: "⚡ 充能", type: "slide", start: 100, end: 1000, dur: 2, wave: "sawtooth" },
-                { id: "alarm_sf", label: "🚨 警報", type: "wobble", freq: 880, dur: 2, speed: 2 },
-                { id: "portal", label: "🌀 傳送門", type: "noise", dur: 2, env: "swell" },
-                { id: "laser_gun", label: "🔫 光線槍", type: "slide", start: 1500, end: 200, dur: 0.2, wave: "square" },
-                { id: "shield", label: "🛡️ 護盾", type: "tone", freq: 200, dur: 1, wave: "sine" },
-                { id: "computer", label: "💻 運算", type: "seq", notes: [1000, 1200, 800, 1500], speed: 0.05, wave: "square" }
-            ],
-            "Ambience (環境)": [
-                { id: "rain", label: "🌧️ 下雨", type: "noise", dur: 5, env: "flat" },
-                { id: "wind", label: "💨 風聲", type: "noise", dur: 5, env: "swell" },
-                { id: "white_noise", label: "📺 白噪", type: "noise", dur: 5, env: "flat" },
-                { id: "heartbeat", label: "💓 心跳", type: "seq", notes: [50, 0, 50], speed: 0.3, wave: "sine" },
-                { id: "drone_low", label: "🔉 低頻", type: "tone", freq: 60, dur: 5, wave: "sine" },
-                { id: "drone_high", label: "🔊 高頻", type: "tone", freq: 8000, dur: 5, wave: "sine" },
-                { id: "static", label: "📻 雜訊", type: "noise", dur: 1, env: "fade" },
-                { id: "thunder", label: "⚡ 雷聲", type: "noise", dur: 1.5, env: "fade" },
-                { id: "steps", label: "👣 腳步", type: "noise", dur: 0.1, env: "fade" },
-                { id: "fire", label: "🔥 營火", type: "noise", dur: 5, env: "crack" }
-            ],
-            "Horror (恐怖)": [
-                { id: "piano_hit", label: "🎹 驚悚", type: "complex", freq: 50, dur: 3 },
-                { id: "screech", label: "🎻 尖銳", type: "slide", start: 2000, end: 1800, dur: 1, wave: "sawtooth" },
-                { id: "ghost", label: "👻 鬼魂", type: "wobble", freq: 300, dur: 3, speed: 0.5 },
-                { id: "jumpscare", label: "🧛 嚇人", type: "noise", dur: 0.5, env: "fade" },
-                { id: "breath", label: "😨 呼吸", type: "noise", dur: 1, env: "swell" },
-                { id: "creak", label: "🚪 門聲", type: "slide", start: 100, end: 150, dur: 1, wave: "sawtooth" },
-                { id: "monster", label: "🧟 怪獸", type: "tone", freq: 80, dur: 1, wave: "sawtooth" },
-                { id: "stab", label: "🔪 刺擊", type: "complex", freq: 1000, dur: 0.2 },
-                { id: "bell", label: "🔔 喪鐘", type: "complex", freq: 200, dur: 4 },
-                { id: "whisper", label: "👂 低語", type: "noise", dur: 1, env: "flat" }
+            "Sci-Fi": [
+                { id: "teleport", label: "🌌 Teleport", type: "slide", start: 200, end: 2000, dur: 1.5, wave: "sine" },
+                { id: "scanner", label: "📡 Scan", type: "wobble", freq: 800, dur: 2, speed: 10 },
+                { id: "ufo", label: "🛸 UFO", type: "wobble", freq: 1200, dur: 3, speed: 5 },
+                { id: "alarm_sf", label: "🚨 Alarm", type: "wobble", freq: 880, dur: 2, speed: 2 },
+                { id: "laser_gun", label: "🔫 Zap", type: "slide", start: 1500, end: 200, dur: 0.2, wave: "square" },
+                { id: "shield", label: "🛡️ Shield", type: "tone", freq: 200, dur: 1, wave: "sine" }
             ]
         };
 
@@ -591,13 +647,13 @@
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
                 localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 480, height: 360, facingMode: "user" },
+                    video: { width: 640, height: 480, facingMode: "user" },
                     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
 
                 setupUI();
                 setupAudioGraph();
-                initSoundboard(); // 初始化 100+ 音效
+                initSoundboard(); 
                 startCanvasLoop();
                 connectSignaling();
             } catch (err) { alert("無法存取設備: " + err.message); }
@@ -606,28 +662,26 @@
         function setupUI() {
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app-screen').style.display = 'flex';
-            document.getElementById('header-info').textContent = `Room: ${roomId} | ${myNickname}`;
+            document.getElementById('header-info').textContent = `${roomId} | ${myNickname}`;
             
             addVideoCard('local', myNickname, true);
             const v = document.getElementById('video-local');
             v.srcObject = localStream; v.muted = true;
         }
 
-        // === 3. 初始化音效板 UI ===
+        // === 3. 初始化音效板 UI (Updated for new CSS) ===
         function initSoundboard() {
             const tabContainer = document.getElementById('sb-tabs-container');
             const contentContainer = document.getElementById('sb-content-area');
             let firstCategory = true;
 
             for (const category in soundLibrary) {
-                // 建立 Tab
                 const tab = document.createElement('button');
                 tab.className = `sb-tab ${firstCategory ? 'active' : ''}`;
-                tab.textContent = category.split(' ')[0]; // 取簡稱
+                tab.textContent = category; 
                 tab.onclick = () => switchTab(category, tab);
                 tabContainer.appendChild(tab);
 
-                // 建立按鈕 (預設只顯示第一類)
                 if (firstCategory) {
                     renderSoundButtons(category);
                     firstCategory = false;
@@ -636,10 +690,8 @@
         }
 
         function switchTab(category, tabElem) {
-            // 更新 Tab 樣式
             document.querySelectorAll('.sb-tab').forEach(t => t.classList.remove('active'));
             tabElem.classList.add('active');
-            // 更新按鈕
             renderSoundButtons(category);
         }
 
@@ -650,17 +702,23 @@
             
             sounds.forEach(sound => {
                 const btn = document.createElement('button');
-                btn.className = 'sb-btn';
-                if (category.includes("Game")) btn.classList.add('retro-btn');
-                btn.textContent = sound.label;
-                // 綁定點擊事件
-                btn.onclick = () => playSynthSound(sound);
+                btn.className = 'pad-btn';
+                if (category.includes("8-Bit")) btn.classList.add('retro-style');
+                // Icon + Label structure
+                const [icon, ...text] = sound.label.split(" ");
+                btn.innerHTML = `<span style="font-size:1.2rem;">${icon}</span><span>${text.join(" ")}</span>`;
+                
+                btn.onclick = () => {
+                    playSynthSound(sound);
+                    // Visual feedback
+                    btn.style.borderColor = "var(--accent-primary)";
+                    setTimeout(() => btn.style.borderColor = "", 150);
+                };
                 container.appendChild(btn);
             });
         }
 
         // === 4. 核心音效合成引擎 (Synth Engine) ===
-        // 這個函式能產生所有 100+ 種音效
         function playSynthSound(params) {
             if (!audioCtx) return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -668,14 +726,11 @@
             const mode = document.querySelector('input[name="sb-mode"]:checked').value;
             const t = audioCtx.currentTime;
             
-            // 路由設定
             const gain = audioCtx.createGain();
             gain.connect(soundboardGainNode);
             if (mode === 'broadcast') gain.connect(peerDestNode);
 
-            // 根據類型合成
             if (params.type === 'noise') {
-                // 白噪音/粉紅噪音
                 const bufSz = audioCtx.sampleRate * params.dur;
                 const buffer = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
                 const data = buffer.getChannelData(0);
@@ -685,15 +740,12 @@
                 src.buffer = buffer;
                 src.connect(gain);
                 
-                // Envelope
                 gain.gain.setValueAtTime(1, t);
                 if (params.env === 'fade') gain.gain.exponentialRampToValueAtTime(0.01, t + params.dur);
                 else if (params.env === 'swell') { gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(1, t + params.dur/2); gain.gain.linearRampToValueAtTime(0, t + params.dur); }
-                
                 src.start();
             } 
             else if (params.type === 'seq') {
-                // 音序 (Melody)
                 let time = t;
                 params.notes.forEach(note => {
                     if (note > 0) {
@@ -710,7 +762,6 @@
                 gain.gain.setValueAtTime(0, time);
             }
             else if (params.type === 'slide') {
-                // 滑音 (Swoosh, Laser)
                 const osc = audioCtx.createOscillator();
                 osc.type = params.wave || 'sine';
                 osc.frequency.setValueAtTime(params.start, t);
@@ -724,48 +775,38 @@
                 osc.stop(t + params.dur);
             }
             else if (params.type === 'tone') {
-                // 單音
                 const osc = audioCtx.createOscillator();
                 osc.type = params.wave || 'sine';
                 osc.frequency.value = params.freq;
                 osc.connect(gain);
-                
                 gain.gain.setValueAtTime(0.5, t);
                 gain.gain.exponentialRampToValueAtTime(0.01, t + params.dur);
                 osc.start(t);
                 osc.stop(t + params.dur);
             }
             else if (params.type === 'wobble') {
-                // 顫音 (UFO, Ghost)
                 const osc = audioCtx.createOscillator();
                 osc.frequency.value = params.freq;
-                
                 const lfo = audioCtx.createOscillator();
                 lfo.frequency.value = params.speed;
                 const lfoGain = audioCtx.createGain();
-                lfoGain.gain.value = 200; // Depth
-                
+                lfoGain.gain.value = 200; 
                 lfo.connect(lfoGain);
                 lfoGain.connect(osc.frequency);
-                
                 osc.connect(gain);
                 gain.gain.setValueAtTime(0.5, t);
                 gain.gain.linearRampToValueAtTime(0, t + params.dur);
-                
                 osc.start(t); lfo.start(t);
                 osc.stop(t + params.dur); lfo.stop(t + params.dur);
             }
             else if (params.type === 'complex') {
-                // 複合波 (Airhorn)
                 const osc1 = audioCtx.createOscillator(); osc1.type = 'sawtooth';
                 const osc2 = audioCtx.createOscillator(); osc2.type = 'square';
                 osc1.frequency.value = params.freq;
-                osc2.frequency.value = params.freq * 1.5; // 5th interval
-                
+                osc2.frequency.value = params.freq * 1.5; 
                 osc1.connect(gain); osc2.connect(gain);
                 gain.gain.setValueAtTime(0.3, t);
                 gain.gain.exponentialRampToValueAtTime(0.01, t + params.dur);
-                
                 osc1.start(t); osc2.start(t);
                 osc1.stop(t + params.dur); osc2.stop(t + params.dur);
             }
@@ -781,12 +822,10 @@
             recordDestNode = audioCtx.createMediaStreamDestination();
             peerDestNode = audioCtx.createMediaStreamDestination();
 
-            // Mic -> Peer & Record
             micSourceNode.connect(micGainNode);
             micGainNode.connect(peerDestNode);
             micGainNode.connect(recordDestNode);
 
-            // SB & BGM -> All
             soundboardGainNode.connect(audioCtx.destination);
             soundboardGainNode.connect(recordDestNode);
             
@@ -795,17 +834,21 @@
             bgmGainNode.connect(peerDestNode); 
         }
 
-        function resumeAudio() { if(audioCtx.state === 'suspended') audioCtx.resume(); }
+        function resumeAudio() { if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
 
         // === 6. WebSocket ===
         function connectSignaling() {
             ws = new WebSocket(SIGNALING_URL);
             ws.onopen = () => {
-                document.getElementById('connection-badge').textContent = "Online";
-                document.getElementById('connection-badge').classList.add('connected');
+                document.getElementById('connection-text').textContent = "Online";
+                document.getElementById('connection-dot').classList.add('active');
                 sendSignal({ type: 'join', roomId, nickname: myNickname });
             };
             ws.onmessage = (e) => handleSignalingData(JSON.parse(e.data));
+            ws.onclose = () => {
+                document.getElementById('connection-text').textContent = "Offline";
+                document.getElementById('connection-dot').classList.remove('active');
+            };
         }
 
         async function handleSignalingData(data) {
@@ -854,7 +897,6 @@
                     gain.connect(audioCtx.destination);
                     gain.connect(recordDestNode);
                     src.connect(gain);
-                    // Keep alive
                     const aud = new Audio(); aud.srcObject = stream; aud.muted = true; aud.play().catch(e=>{});
                 }
             };
@@ -877,7 +919,9 @@
             const grid = document.getElementById('video-grid');
             const div = document.createElement('div');
             div.className = 'video-card'; div.id = `card-${id}`;
-            div.innerHTML = `<video id="video-${id}" autoplay playsinline ${isLocal?'muted':''}></video><div class="overlay-name">${name}</div>`;
+            // Simulating talking effect
+            if(!isLocal) div.classList.add('talking');
+            div.innerHTML = `<video id="video-${id}" autoplay playsinline ${isLocal?'muted':''}></video><div class="user-label">${name}</div>`;
             grid.appendChild(div);
         }
         function toggleCam() {
@@ -905,19 +949,31 @@
                 
                 videos.forEach((v, i) => {
                     const c = i%cols, r = Math.floor(i/cols);
-                    try { ctx.drawImage(v, c*w, r*h, w, h); } catch(e){}
-                    ctx.strokeStyle='#333'; ctx.strokeRect(c*w, r*h, w, h);
+                    try { 
+                        // Draw Image
+                        ctx.drawImage(v, c*w, r*h, w, h); 
+                        // Draw Name Label
+                        ctx.fillStyle = "rgba(0,0,0,0.5)";
+                        ctx.fillRect(c*w + 10, r*h + h - 40, 120, 30);
+                        ctx.fillStyle = "white";
+                        ctx.font = "16px Arial";
+                        ctx.fillText("User " + (i+1), c*w + 20, r*h + h - 20);
+                        // Reset fill style for clearing
+                        ctx.fillStyle = "#000";
+                    } catch(e){}
+                    ctx.strokeStyle='#222'; ctx.lineWidth=4; ctx.strokeRect(c*w, r*h, w, h);
                 });
             }, 33);
         }
 
         function toggleRecording() {
             const btn = document.getElementById('btn-record');
+            const timer = document.getElementById('rec-timer');
+            
             if(!isRecording) {
                 const stream = canvas.captureStream(30);
                 recordDestNode.stream.getAudioTracks().forEach(t => stream.addTrack(t));
                 
-                // 優先使用 mp4 (iOS)
                 let mime = 'video/webm;codecs=vp8,opus';
                 if(!MediaRecorder.isTypeSupported(mime)) mime = 'video/mp4';
 
@@ -929,21 +985,32 @@
                 mediaRecorder.onstop = saveFile;
                 mediaRecorder.start();
                 
-                isRecording = true; btn.innerHTML = "■ 停止"; btn.classList.add('recording');
+                isRecording = true; 
+                btn.innerHTML = `<span class="rec-icon">■</span> STOP RECORDING`; 
+                btn.classList.add('active');
+                
                 recordingStartTime = Date.now();
                 recInterval = setInterval(() => {
-                    const s = Math.floor((Date.now()-recordingStartTime)/1000);
-                    document.getElementById('rec-timer').innerText = new Date(s*1000).toISOString().substr(14,5);
+                    const diff = Date.now() - recordingStartTime;
+                    const h = Math.floor(diff / 3600000).toString().padStart(2,'0');
+                    const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2,'0');
+                    const s = Math.floor((diff % 60000) / 1000).toString().padStart(2,'0');
+                    timer.innerText = `${h}:${m}:${s}`;
                 }, 1000);
             } else {
-                mediaRecorder.stop(); isRecording = false; btn.innerHTML = "● 錄影"; btn.classList.remove('recording'); clearInterval(recInterval);
+                mediaRecorder.stop(); 
+                isRecording = false; 
+                btn.innerHTML = `<span class="rec-icon">●</span> START RECORDING`; 
+                btn.classList.remove('active');
+                clearInterval(recInterval);
             }
         }
         function saveFile() {
             const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = `rec-${Date.now()}.mp4`; a.textContent = "下載影片"; a.className = "btn-primary";
+            a.href = url; a.download = `OMNI-REC-${Date.now()}.mp4`; a.textContent = "Download File"; 
+            a.className = "download-link";
             document.getElementById('download-area').innerHTML = '';
             document.getElementById('download-area').appendChild(a);
         }
@@ -962,9 +1029,10 @@
         function setYtVolume(v) { if(isYtReady) ytPlayer.setVolume(v); }
         function handleYtSync(d) {
             if(!isYtReady) return;
-            if(d.action==='load') ytPlayer.loadVideoById(d.videoId);
-            else if(d.action==='play') ytPlayer.playVideo();
-            else if(d.action==='pause') ytPlayer.pauseVideo();
+            const btn = document.getElementById('yt-play-btn');
+            if(d.action==='load') { ytPlayer.loadVideoById(d.videoId); btn.innerText = "▶"; }
+            else if(d.action==='play') { ytPlayer.playVideo(); btn.innerText = "⏸"; }
+            else if(d.action==='pause') { ytPlayer.pauseVideo(); btn.innerText = "▶"; }
         }
         
         async function captureTabAudio() {
@@ -973,32 +1041,32 @@
                 const audioTrack = stream.getAudioTracks()[0];
                 if(!audioTrack) return alert("未選取音訊！");
                 
-                // Stop video to save resource
                 stream.getVideoTracks().forEach(t => t.stop());
                 
                 if(tabAudioSource) tabAudioSource.disconnect();
                 tabAudioSource = audioCtx.createMediaStreamSource(new MediaStream([audioTrack]));
-                tabAudioSource.connect(bgmGainNode); // Route to mixer
+                tabAudioSource.connect(bgmGainNode); 
                 
                 const btn = document.getElementById('btn-capture-tab');
-                btn.textContent = "📡 已擷取 (錄製中)"; btn.classList.add('capturing');
-                audioTrack.onended = () => { btn.textContent = "📡 抓取分頁聲音"; btn.classList.remove('capturing'); };
+                btn.innerHTML = "<span>📡</span> 已擷取 (ACTIVE)"; btn.classList.add('active');
+                audioTrack.onended = () => { btn.innerHTML = "<span>📡</span> 擷取分頁音訊"; btn.classList.remove('active'); };
             } catch(e) { console.log(e); }
         }
 
-        // === 11. BGM ===
+        // === 11. BGM & Events ===
         function toggleBGM() {
+            const btn = document.getElementById('bgm-toggle');
             if(!isBgmPlaying) {
                 const osc = audioCtx.createOscillator(); osc.frequency.value = 55; // Low Drone
                 osc.connect(bgmGainNode); osc.start(); bgmOscillators.push(osc);
-                isBgmPlaying = true; document.getElementById('bgm-toggle').innerText="ON";
+                isBgmPlaying = true; btn.innerText="ON"; btn.style.color = "var(--accent-success)";
             } else {
                 bgmOscillators.forEach(o=>o.stop()); bgmOscillators=[];
-                isBgmPlaying = false; document.getElementById('bgm-toggle').innerText="OFF";
+                isBgmPlaying = false; btn.innerText="OFF"; btn.style.color = "var(--text-main)";
             }
         }
         
-        // 防呆事件綁定
+        // 安全綁定
         const bgmSlider = document.getElementById('bgm-volume');
         if(bgmSlider) bgmSlider.oninput = e => { if(bgmGainNode) bgmGainNode.gain.value = e.target.value/100; };
         
